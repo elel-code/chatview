@@ -1,0 +1,3 @@
+ALTER TABLE messages
+    ALTER COLUMN id DROP DEFAULT,
+    ALTER COLUMN id TYPE TEXT USING id::text;

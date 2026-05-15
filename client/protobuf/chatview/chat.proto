@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package chatview.chat;
+
+import "chatview/common/types.proto";
+
+option go_package = "chatview/gen/chatview/chat;chatpb";
+option cc_enable_arenas = true;
+
+// ─────────────────────────────────────────────
+// ChatService — 聊天 & 好友
+//
+// 所有 RPC 需在 gRPC metadata 中携带:
+//   authorization: Bearer <session_token>
+// ─────────────────────────────────────────────
+
+// ── 好友列表 ─────────────────────────────────
+
+message ListFriendsReq {}
+
+message ListFriendsResp {
+  repeated chatview.common.FriendInfo friends = 1;
+}
+
+// ── 添加好友 ─────────────────────────────────
+
+message AddFriendReq {
+  string target_pub_key = 1;  // 要添加的目标用户公钥
+}
+
+message AddFriendResp {}  // 成功即返回；错误走 gRPC status
+
+// ── 发送消息 ─────────────────────────────────
+
+message SendMessageReq {
+  string receiver_pub_key = 1;  // 接收者公钥
+  string text             = 2;  // 消息正文
+  string client_message_id = 3; // 客户端本地消息 ID；同一发送者内作为幂等键，重试返回同一服务端消息
+}
+
+message SendMessageResp {
+  string message_id  = 1;  // 服务端分配的消息 ID
+  string timestamp   = 2;  // 服务端时间戳 (ISO 8601)
+  int64  server_seq  = 3;  // 会话内单调递增序号；C++ 用于写 SQLite，不暴露给 JS DTO
+  bool   deduplicated = 4; // true 表示本次请求命中 client_message_id 幂等记录，未重复写入消息
+}
+
+// ── 消息历史 ─────────────────────────────────
+
+message GetMessageHistoryReq {
+  string peer_pub_key = 1;  // 聊天对象的公钥
+  string cursor       = 2;  // 分页游标：server_seq 值；older 时取更早，newer 时取更新
+  int32  limit        = 3;  // 每页数量；默认 30，最大 100
+  string direction    = 4;  // "older" 或 "newer"；为空默认 "older"
+}
+
+message GetMessageHistoryResp {
+  chatview.common.MessageHistoryPage page = 1;
+}
+
+// ── 已读游标 ─────────────────────────────────
+
+message MarkConversationReadReq {
+  string peer_pub_key = 1;         // 聊天对象的公钥
+  int64 last_read_server_seq = 2;  // 已读到的 server_seq；<=0 时服务端标记到当前最新消息
+}
+
+message MarkConversationReadResp {}
+
+// ─────────────────────────────────────────────
+// Service
+// ─────────────────────────────────────────────
+
+service ChatService {
+  // 获取当前用户的好友列表
+  rpc ListFriends(ListFriendsReq) returns (ListFriendsResp);
+
+  // 添加好友
+  rpc AddFriend(AddFriendReq) returns (AddFriendResp);
+
+  // 发送消息到指定好友
+  rpc SendMessage(SendMessageReq) returns (SendMessageResp);
+
+  // 拉取与某好友的聊天历史（游标分页）
+  rpc GetMessageHistory(GetMessageHistoryReq) returns (GetMessageHistoryResp);
+
+  // 更新当前用户在某个会话中的已读游标；ListFriends.unread 由服务端基于该游标计算
+  rpc MarkConversationRead(MarkConversationReadReq) returns (MarkConversationReadResp);
+}

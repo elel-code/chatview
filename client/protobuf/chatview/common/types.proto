@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package chatview.common;
+
+option go_package = "chatview/gen/chatview/common;commonpb";
+option cc_enable_arenas = true;
+
+// ─────────────────────────────────────────────
+// 枚举 — 与前端 types.ts 保持对齐
+// ─────────────────────────────────────────────
+
+// 注意: role 值通过 LoginResp.role (int32) 直接传递，前端使用 0=USER, 1=ADMIN。
+// 此处不定义 UserRole 枚举以避免 proto3 枚举零值哨兵导致的映射混淆。
+
+// 用户封禁状态
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_BANNED = 2;
+}
+
+// 在线状态
+enum OnlineStatus {
+  ONLINE_STATUS_UNSPECIFIED = 0;
+  ONLINE_STATUS_OFFLINE = 1;
+  ONLINE_STATUS_ONLINE  = 2;
+}
+
+// 消息投递状态 — 对应前端 ChatMessage.delivery
+enum MessageDelivery {
+  MESSAGE_DELIVERY_UNSPECIFIED = 0;
+  MESSAGE_DELIVERY_INCOMING = 1;  // 收到的消息
+  MESSAGE_DELIVERY_PENDING  = 2;  // 发送中（客户端本地状态）
+  MESSAGE_DELIVERY_SENT     = 3;  // 已送达服务器
+  MESSAGE_DELIVERY_FAILED   = 4;  // 发送失败
+}
+
+// ─────────────────────────────────────────────
+// 通用消息体
+// ─────────────────────────────────────────────
+
+// 好友信息 — 对应 Friend 接口
+message FriendInfo {
+  string pub_key   = 1;  // Ed25519 公钥 (base64 或 hex)
+  string alias     = 2;  // 别名/备注名
+  bool   is_online = 3;
+  int32  unread    = 4;  // 未读消息数
+}
+
+// 聊天消息 — 对应前端 ChatMessage 接口
+//
+// ⚠ C++ Saucer 暴露层必须做 DTO 映射，不能直接把 protobuf 对象原样丢给 JS:
+//   - proto sender_pub_key (field 2)      → JS { sender }
+//   - proto delivery    (enum, field 5)   → JS { delivery: "incoming"|"pending"|"sent"|"failed" }
+//   - proto timestamp   (string, field 4) → JS { timestamp }  直接透传
+//   - proto id          (string, field 1) → JS { id }         直接透传
+//   - proto text        (string, field 3) → JS { text }       直接透传
+//   - proto error       (string, field 6) → JS { error? }     直接透传
+//   - proto server_seq  (int64, field 10) 留在 C++/SQLite 层；不暴露给 JS DTO
+message ChatMessage {
+  string          id              = 1;  // 服务端消息 ID
+  string          sender_pub_key  = 2;  // 发送者公钥
+  string          text            = 3;  // 消息正文
+  string          timestamp       = 4;  // ISO 8601 时间戳
+  MessageDelivery delivery        = 5;  // 投递状态
+  string          error           = 6;  // 失败原因（仅 delivery == FAILED 时有值）
+  int64           server_seq      = 10; // 会话内单调递增序号（服务端事务内生成，用于客户端补洞检测）
+}
+
+// 分页消息历史 — 对应 MessageHistoryPage 接口
+message MessageHistoryPage {
+  repeated ChatMessage messages    = 1;
+  string               next_cursor = 2;  // 下一页游标；为空表示最后一页
+  bool                 has_more    = 3;
+}
+
+// 用户信息（管理员视角）— 对应 UserInfo 接口
+message UserInfo {
+  string pub_key   = 1;
+  bool   is_online = 2;
+  bool   is_banned = 3;
+}
+
+// 管理员统计数据 — 对应 AdminStats 接口
+message AdminStats {
+  int32 online_users = 1;
+  int32 total_users  = 2;
+  int32 banned_users = 3;
+}
+
+// 管理员综合更新 — 对应 AdminUpdate 接口
+message AdminUpdate {
+  repeated UserInfo users = 1;
+  AdminStats        stats = 2;
+}
+
+// ─────────────────────────────────────────────
+// 空请求/响应占位（用于无参数 RPC 或 fire-and-forget）
+// ─────────────────────────────────────────────
+
+message Empty {}
+
+// 操作结果（仅用于需要明确确认的场景；一般错误走 gRPC status）
+message OperationResult {
+  bool   ok      = 1;
+  string message = 2;  // 可读描述
+}

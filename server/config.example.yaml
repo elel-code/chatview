@@ -1,0 +1,11 @@
+listen_addr: ":50051"
+db_dsn: "postgres://chatview:chatview@localhost:5432/chatview?sslmode=disable"
+tls_cert: ""
+tls_key: ""
+session_ttl: 24h
+challenge_ttl: 5m
+cleanup_interval: 10m
+presence_heal_interval: 5m
+admin_pub_key: ""
+migrations_dir: "migrations"
+skip_migrations: false

@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package chatview.auth;
+
+option go_package = "chatview/gen/chatview/auth;authpb";
+option cc_enable_arenas = true;
+
+// ─────────────────────────────────────────────
+// AuthService — 认证
+//
+// 流程:
+//   Client                          Server
+//   ──────                          ──────
+//   1. RequestChallenge(pub_key) ──→ 生成随机 nonce，关联 pub_key
+//   2.                       ←── 返回 challenge (bytes)
+//   3. C++ 用 Ed25519 私钥本地签名 challenge（私钥永不出 C++ 层）
+//   4. Login(pub_key, sig) ──────→  验证 Ed25519 签名
+//   5.                       ←── 返回 session_token + role
+//
+// 之后所有 RPC 在 gRPC metadata 中携带 "authorization: Bearer <token>"
+// ─────────────────────────────────────────────
+
+// 获取挑战（服务端生成随机 nonce）
+message RequestChallengeReq {
+  string pub_key = 1;  // 用户 Ed25519 公钥（base64 或 hex）
+}
+
+message RequestChallengeResp {
+  bytes challenge = 1;       // 服务端生成的随机挑战串
+  int64 expires_at = 2;      // 挑战有效期（Unix 时间戳，秒）。过期后需重新请求
+}
+
+// 登录
+message LoginReq {
+  string pub_key            = 1;  // 用户 Ed25519 公钥
+  bytes  challenge_signature = 2;  // 用户用私钥对 challenge 的 Ed25519 签名
+}
+
+message LoginResp {
+  string session_token = 1;  // 后续 RPC 用此 token 鉴权（放入 gRPC metadata）
+  int32  role          = 2;  // 0 = USER, 1 = ADMIN（与前端 identity.role 对齐）
+  string pub_key       = 3;  // 回显公钥，供前端校验
+}
+
+// ─────────────────────────────────────────────
+// Service
+// ─────────────────────────────────────────────
+
+service AuthService {
+  // 步骤 1: 请求登录挑战
+  rpc RequestChallenge(RequestChallengeReq) returns (RequestChallengeResp);
+
+  // 步骤 2: 提交签名完成登录（首次登录的公钥自动注册为普通用户）
+  rpc Login(LoginReq) returns (LoginResp);
+}
