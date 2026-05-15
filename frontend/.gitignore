@@ -29,3 +29,5 @@ TODO.md
 server-ref
 *.proto
 go-backend-design.md
+.agents
+.codex
