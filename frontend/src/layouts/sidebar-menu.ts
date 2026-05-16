@@ -28,7 +28,7 @@ export class SidebarMenu extends SignalWatcher(LitElement) {
       pushToast(error instanceof Error ? error.message : String(error), "error");
     } finally {
       resetSession();
-      navigate("/auth");
+      navigate({ name: "auth-unlock" });
     }
   }
 
@@ -42,9 +42,9 @@ export class SidebarMenu extends SignalWatcher(LitElement) {
         </header>
         <identity-card></identity-card>
         <nav>
-          <button type="button" @click=${() => navigate("/chat")}>聊天</button>
+          <button type="button" @click=${() => navigate({ name: "chat" })}>聊天</button>
           ${isAdmin.get()
-            ? html`<button type="button" @click=${() => navigate("/chat/admin")}>管理员</button>`
+            ? html`<button type="button" @click=${() => navigate({ name: "admin-dashboard" })}>管理员</button>`
             : nothing}
         </nav>
         <form @submit=${this.addFriend}>

@@ -1,12 +1,12 @@
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
-import { router } from "../router";
+import { replace } from "../router";
 
 @customElement("root-redirect")
 export class RootRedirect extends LitElement {
   connectedCallback() {
     super.connectedCallback();
-    queueMicrotask(() => router.replace("/auth"));
+    queueMicrotask(() => replace({ name: "auth-unlock" }));
   }
 
   render() {

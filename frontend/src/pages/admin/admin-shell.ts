@@ -10,7 +10,7 @@ export class AdminShell extends SignalWatcher(LitElement) {
   accessor routeContext: RouteContext | undefined;
 
   render() {
-    const path = this.routeContext?.detail.localPathname ?? "";
+    const routeName = this.routeContext?.detail.leaf?.name ?? "admin-dashboard";
     return html`
       <section class="shell">
         <header>
@@ -19,9 +19,9 @@ export class AdminShell extends SignalWatcher(LitElement) {
             <span>用户状态、全服广播和运行概览</span>
           </div>
           <nav>
-            <button class=${path === "/chat/admin" ? "active" : ""} @click=${() => navigate("/chat/admin")}>看板</button>
-            <button class=${path === "/chat/admin/users" ? "active" : ""} @click=${() => navigate("/chat/admin/users")}>用户</button>
-            <button class=${path === "/chat/admin/broadcast" ? "active" : ""} @click=${() => navigate("/chat/admin/broadcast")}>广播</button>
+            <button class=${routeName === "admin-dashboard" ? "active" : ""} @click=${() => navigate({ name: "admin-dashboard" })}>看板</button>
+            <button class=${routeName === "admin-users" ? "active" : ""} @click=${() => navigate({ name: "admin-users" })}>用户</button>
+            <button class=${routeName === "admin-broadcast" ? "active" : ""} @click=${() => navigate({ name: "admin-broadcast" })}>广播</button>
           </nav>
         </header>
         <slot name="route-child"></slot>

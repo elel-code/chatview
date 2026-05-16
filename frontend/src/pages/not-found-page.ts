@@ -9,7 +9,7 @@ export class NotFoundPage extends LitElement {
       <main>
         <h1>页面不存在</h1>
         <p>当前地址没有匹配的前端路由。</p>
-        <button type="button" @click=${() => navigate("/chat")}>返回聊天</button>
+        <button type="button" @click=${() => navigate({ name: "chat" })}>返回聊天</button>
       </main>
     `;
   }

@@ -9,7 +9,7 @@ export class AuthView extends LitElement {
   accessor routeContext: RouteContext | undefined;
 
   render() {
-    const path = this.routeContext?.detail.localPathname ?? "/auth";
+    const routeName = this.routeContext?.detail.leaf?.name ?? "auth-unlock";
     return html`
       <main>
         <section class="panel">
@@ -18,9 +18,9 @@ export class AuthView extends LitElement {
             <strong>去中心化身份聊天</strong>
           </div>
           <nav>
-            <button class=${path === "/auth" ? "active" : ""} @click=${() => navigate("/auth")}>解锁</button>
-            <button class=${path === "/auth/create" ? "active" : ""} @click=${() => navigate("/auth/create")}>创建</button>
-            <button class=${path === "/auth/import" ? "active" : ""} @click=${() => navigate("/auth/import")}>导入</button>
+            <button class=${routeName === "auth-unlock" ? "active" : ""} @click=${() => navigate({ name: "auth-unlock" })}>解锁</button>
+            <button class=${routeName === "auth-create" ? "active" : ""} @click=${() => navigate({ name: "auth-create" })}>创建</button>
+            <button class=${routeName === "auth-import" ? "active" : ""} @click=${() => navigate({ name: "auth-import" })}>导入</button>
           </nav>
           <slot name="route-child"></slot>
         </section>

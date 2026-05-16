@@ -194,10 +194,10 @@ coco::stray start(saucer::application* app, chatview::client::NativeClientOption
 
     window->set_title("ChatView");
     window->set_size({.w = 1200, .h = 800});
-    webview->set_dev_tools(false);
+    webview->set_dev_tools(true);
 
     webview->embed(saucer::embedded::all());
-    webview->serve("/index.html");
+    webview->set_url("saucer://embedded/index.html#/auth");
 
     window->show();
     co_await app->finish();

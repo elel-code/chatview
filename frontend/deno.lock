@@ -1,7 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@jsr/elelcode__lit-router@^1.0.3": "1.0.3",
+    "npm:@jsr/elelcode__lit-router@^1.1.2": "1.1.2",
     "npm:@lit-labs/signals@0.3": "0.3.0",
     "npm:@lit-labs/virtualizer@^2.1.1": "2.1.1",
     "npm:lit@^3.3.3": "3.3.3",
@@ -28,12 +28,12 @@
         "tslib"
       ]
     },
-    "@jsr/elelcode__lit-router@1.0.3": {
-      "integrity": "sha512-YlLOrO234Cj7oY5aYExjMI/UgrGwp7ggUEVUbB3BlNouyGd3Pyp6hxFE4RSpeWkwxmSh6Wd1SOCm2eHWXwAKRw==",
+    "@jsr/elelcode__lit-router@1.1.2": {
+      "integrity": "sha512-+tdd0B7Cri77GOc7KJN2G3S60Yf/8J53YIR94a4KUjEvciJ5M+AnTQ7+FZWgst6Cq3TENo9HKK1yBGmlMfwyyA==",
       "dependencies": [
         "lit"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/elelcode__lit-router/1.0.3.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/elelcode__lit-router/1.1.2.tgz"
     },
     "@lit-labs/signals@0.3.0": {
       "integrity": "sha512-PfB5FLtorVfkhwTWXOPNT/rvrVdSDY8siwPyR17ztrViRbMqxy1TQBcHqJoA4303QT8yXPGxYtGKJGj7fEfEwg==",
@@ -354,7 +354,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@jsr/elelcode__lit-router@^1.0.3",
+        "npm:@jsr/elelcode__lit-router@^1.1.2",
         "npm:@lit-labs/signals@0.3",
         "npm:@lit-labs/virtualizer@^2.1.1",
         "npm:lit@^3.3.3",

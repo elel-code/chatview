@@ -74,7 +74,7 @@ export class AuthUnlock extends SignalWatcher(LitElement) {
         ${this.error ? html`<p class="error">${this.error}</p>` : nothing}
         <button type="submit" ?disabled=${this.busy || Boolean(locked)}>${this.busy ? "解锁中" : "解锁进入"}</button>
         <p class="hint">PIN 只用于本机解密，登录签名由原生层完成。</p>
-        <button type="button" class="link" @click=${() => navigate("/auth/create")}>还没有身份，创建一个</button>
+        <button type="button" class="link" @click=${() => navigate({ name: "auth-create" })}>还没有身份，创建一个</button>
       </form>
     `;
   }

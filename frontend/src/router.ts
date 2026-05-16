@@ -1,4 +1,4 @@
-import { Router, type RouteDefinition, type RouteGuard } from "@jsr/elelcode__lit-router";
+import { Router, type RouteDefinition, type RouteGuard, type RouteLocation } from "@jsr/elelcode__lit-router";
 import "@jsr/elelcode__lit-router";
 import { identity, isAdmin } from "./store";
 import type { Identity } from "./types";
@@ -49,9 +49,9 @@ const baseRoutes: RouteDefinition[] = [
 
 export const router = new Router({
   basePath: "/",
+  mode: "hash",
   routes: baseRoutes,
   beforeRoute: globalAuthGuard,
-  autoStart: false,
 });
 
 let chatRouteInserted = false;
@@ -120,9 +120,13 @@ export function ensureAppRoutes(role: number) {
 export function completeLogin(ident: Pick<Identity, "publicKey" | "role">) {
   identity.set({ ...ident, isLoggedIn: true });
   ensureAppRoutes(ident.role);
-  router.push("/chat");
+  navigate({ name: "chat" });
 }
 
-export function navigate(path: string) {
-  router.push(path);
+export function navigate(location: string | URL | RouteLocation) {
+  router.push(location);
+}
+
+export function replace(location: string | URL | RouteLocation) {
+  router.replace(location);
 }

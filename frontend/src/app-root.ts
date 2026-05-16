@@ -1,11 +1,12 @@
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import { SignalWatcher } from "@lit-labs/signals";
+import type { RouterEventListener } from "@jsr/elelcode__lit-router";
 import { saucerBridge } from "./bridge";
 import "./components/toast-notification";
 import "./pages/not-found-page";
 import "./pages/error-page";
-import { router } from "./router";
+import { navigate, router } from "./router";
 import {
   activeChatPubKey,
   adminStats,
@@ -79,21 +80,26 @@ export class AppRoot extends SignalWatcher(LitElement) {
     super.disconnectedCallback();
   }
 
-  private readonly handleRouteLoadingStart = () => loadingRoute.set(true);
-  private readonly handleRouteLoadingEnd = () => loadingRoute.set(false);
+  private readonly handleRouteLoadingStart: RouterEventListener<"route-loading-start"> = () => {
+    loadingRoute.set(true);
+  };
 
-  private readonly handleRouteChange = (event: Event) => {
-    const detail = (event as CustomEvent).detail as { leaf?: { title?: string; name?: string }; localPathname: string };
+  private readonly handleRouteLoadingEnd: RouterEventListener<"route-loading-end"> = (event) => {
+    loadingRoute.set(event.detail.pending > 0);
+  };
+
+  private readonly handleRouteChange: RouterEventListener<"route-change"> = (event) => {
+    const detail = event.detail;
     document.title = detail.leaf?.title ?? `ChatView ${detail.localPathname}`;
     this.resetIdleTimer();
   };
 
-  private readonly handleRouteError = (event: Event) => {
-    console.error("Route error:", (event as CustomEvent).detail);
+  private readonly handleRouteError: RouterEventListener<"route-error"> = (event) => {
+    console.error("Route error:", event.detail);
   };
 
-  private readonly handleRouteNotFound = (event: Event) => {
-    console.warn("Route not found:", (event as CustomEvent).detail);
+  private readonly handleRouteNotFound: RouterEventListener<"route-not-found"> = (event) => {
+    console.warn("Route not found:", event.detail);
   };
 
   private readonly handleFriendStatus = (event: Event) => {
@@ -118,7 +124,7 @@ export class AppRoot extends SignalWatcher(LitElement) {
   private readonly handleForceOffline = (event: Event) => {
     resetSession();
     pushToast(String((event as CustomEvent<string>).detail || "会话已下线"), "error");
-    router.push("/auth");
+    navigate({ name: "auth-unlock" });
   };
 
   private readonly handleMessagesPending = async (event: Event) => {
@@ -203,7 +209,7 @@ export class AppRoot extends SignalWatcher(LitElement) {
     }
     resetSession();
     pushToast("会话因长时间无操作已锁定", "info");
-    router.push("/auth");
+    navigate({ name: "auth-unlock" });
   }
 
   render() {

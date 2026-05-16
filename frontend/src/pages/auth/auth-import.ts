@@ -26,7 +26,7 @@ export class AuthImport extends LitElement {
       await saucerBridge.importIdentity(this.privateKey, this.pin);
       localIdentityAvailable.set(true);
       pushToast("身份已导入，请用新 PIN 解锁", "success");
-      navigate("/auth");
+      navigate({ name: "auth-unlock" });
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
     } finally {
