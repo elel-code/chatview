@@ -29,6 +29,3 @@ set(protobuf_INSTALL OFF CACHE BOOL "Disable protobuf install" FORCE)
 # Optimise Abseil & RE2
 set(ABSL_BUILD_TESTING OFF CACHE BOOL "Disable Abseil tests" FORCE)
 set(RE2_BUILD_TESTING OFF CACHE BOOL "Disable RE2 tests" FORCE)
-
-# libsodium
-set(SODIUM_DISABLE_TESTS ON CACHE BOOL "Disable libsodium tests" FORCE)

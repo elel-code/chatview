@@ -25,6 +25,5 @@ target_link_libraries(chatview_client_core
     chatview_storage_cache
     cr::coco
     sqlite_orm
-    sodium
     grpc++
 )

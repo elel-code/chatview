@@ -39,5 +39,6 @@ target_link_libraries(asio_grpc_module
     PUBLIC
     asio-grpc::asio-grpc-standalone-asio
     asio
+    crypto
     grpc++
 )

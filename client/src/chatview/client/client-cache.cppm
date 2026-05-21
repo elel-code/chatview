@@ -4,13 +4,11 @@ module;
 #include <concepts>
 #include <cstdint>
 #include <expected>
-#include <functional>
 #include <iterator>
 #include <optional>
 #include <ranges>
 #include <set>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -28,9 +26,6 @@ import chatview.storage.cache;
 
 namespace chatview::client
 {
-
-export using NativeTask = std::function<void(std::stop_token)>;
-export using NativeTaskSpawner = std::function<void(NativeTask)>;
 
 namespace cache_detail
 {

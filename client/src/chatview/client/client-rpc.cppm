@@ -20,7 +20,6 @@ module;
 #include <vector>
 
 #include <coco/task/task.hpp>
-#include <sodium.h>
 
 export module chatview.client:rpc;
 
@@ -99,6 +98,7 @@ auto make_channel(
     args.SetSslTargetNameOverride(ssl_target_name_override);
     return grpc::CreateCustomChannel(target, credentials, args);
 }
+
 }
 
 class RpcClient
@@ -162,13 +162,16 @@ public:
             return std::unexpected{detail::grpc_error(status)};
         }
 
-        std::array<unsigned char, crypto_sign_BYTES> signature{};
-        crypto_sign_detached(
-            signature.data(),
-            nullptr,
-            reinterpret_cast<const unsigned char*>(challenge_resp.challenge().data()),
-            static_cast<unsigned long long>(challenge_resp.challenge().size()),
-            secret_key.data());
+        std::array<unsigned char, bssl::ed25519_signature_size> signature{};
+        if (!bssl::ed25519_sign(
+                signature,
+                std::span<const unsigned char>{
+                    reinterpret_cast<const unsigned char*>(challenge_resp.challenge().data()),
+                    challenge_resp.challenge().size()},
+                secret_key)) {
+            return std::unexpected{"failed to sign challenge"};
+        }
+        detail::SecureBufferCleanup signature_cleanup{std::span<unsigned char>{signature}};
 
         chatview::proto::auth::LoginReq login_req;
         login_req.set_pub_key(public_key_hex);
@@ -179,7 +182,6 @@ public:
             *self.auth_stub_,
             login_req,
             login_resp);
-        sodium_memzero(signature.data(), signature.size());
         if (!status.ok()) {
             if (status.error_code() == grpc::StatusCode::PERMISSION_DENIED) {
                 return std::unexpected{"account banned"};
@@ -212,13 +214,16 @@ public:
             co_return std::unexpected{detail::grpc_error(status)};
         }
 
-        std::array<unsigned char, crypto_sign_BYTES> signature{};
-        crypto_sign_detached(
-            signature.data(),
-            nullptr,
-            reinterpret_cast<const unsigned char*>(challenge_resp.challenge().data()),
-            static_cast<unsigned long long>(challenge_resp.challenge().size()),
-            secret_key.data());
+        std::array<unsigned char, bssl::ed25519_signature_size> signature{};
+        if (!bssl::ed25519_sign(
+                signature,
+                std::span<const unsigned char>{
+                    reinterpret_cast<const unsigned char*>(challenge_resp.challenge().data()),
+                    challenge_resp.challenge().size()},
+                secret_key)) {
+            co_return std::unexpected{"failed to sign challenge"};
+        }
+        detail::SecureBufferCleanup signature_cleanup{std::span<unsigned char>{signature}};
 
         chatview::proto::auth::LoginReq login_req;
         login_req.set_pub_key(public_key_hex);
@@ -229,7 +234,6 @@ public:
             *self.auth_stub_,
             login_req,
             login_resp);
-        sodium_memzero(signature.data(), signature.size());
         if (!status.ok()) {
             if (status.error_code() == grpc::StatusCode::PERMISSION_DENIED) {
                 co_return std::unexpected{"account banned"};
@@ -644,7 +648,7 @@ private:
                 if (!self.set_stream_alarm(generation, &alarm)) {
                     break;
                 }
-                const auto expired = co_await alarm.wait(std::chrono::system_clock::now() + backoff, asio::use_awaitable);
+                const auto expired = co_await alarm.wait(grpc::monotonic_deadline_after(backoff), asio::use_awaitable);
                 self.clear_stream_alarm(generation, &alarm);
                 if (!expired || !self.stream_active(generation)) {
                     break;
@@ -721,9 +725,9 @@ private:
         });
     }
 
-    auto configure_context(this RpcClient& self, grpc::ClientContext& context, std::chrono::system_clock::duration timeout) -> void
+    auto configure_context(this RpcClient& self, grpc::ClientContext& context, std::chrono::steady_clock::duration timeout) -> void
     {
-        context.set_deadline(std::chrono::system_clock::now() + timeout);
+        context.set_deadline(grpc::monotonic_deadline_after(timeout));
 
         std::scoped_lock lock{self.session_mutex_};
         if (!self.session_token_.empty()) {
@@ -731,7 +735,7 @@ private:
         }
     }
 
-    auto make_context(this RpcClient& self, std::chrono::system_clock::duration timeout) -> std::unique_ptr<grpc::ClientContext>
+    auto make_context(this RpcClient& self, std::chrono::steady_clock::duration timeout) -> std::unique_ptr<grpc::ClientContext>
     {
         auto context = std::make_unique<grpc::ClientContext>();
         self.configure_context(*context, timeout);
@@ -786,7 +790,7 @@ private:
         Stub& stub,
         const Request& request,
         Response& response,
-        std::chrono::system_clock::duration timeout) -> grpc::Status
+        std::chrono::steady_clock::duration timeout) -> grpc::Status
     {
         using RPC = agrpc::ClientRPC<PrepareAsync>;
 
@@ -815,7 +819,7 @@ private:
         Stub& stub,
         const Request& request,
         Response& response,
-        std::chrono::system_clock::duration timeout)
+        std::chrono::steady_clock::duration timeout)
     {
         using RPC = agrpc::ClientRPC<PrepareAsync>;
 
@@ -825,7 +829,7 @@ private:
             Stub& stub;
             const Request& request;
             Response& response;
-            std::chrono::system_clock::duration timeout;
+            std::chrono::steady_clock::duration timeout;
             std::shared_ptr<grpc::Status> status = std::make_shared<grpc::Status>();
 
             auto await_ready() const noexcept -> bool

@@ -1,8 +1,10 @@
 module;
 
 #include <chrono>
+#include <condition_variable>
 #include <ctime>
 #include <expected>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
@@ -18,7 +20,6 @@ import :types;
 import :detail;
 import :rpc;
 import :bridge;
-import :cache;
 import chatview.proto.chat;
 import chatview.storage.cache;
 
@@ -28,11 +29,10 @@ namespace chatview::client
 export class OutboxManager
 {
 public:
-    OutboxManager(storage::CacheDatabase& cache, RpcClient& rpc, NativeBridge& bridge, NativeTaskSpawner spawn_task) :
+    OutboxManager(storage::CacheDatabase& cache, RpcClient& rpc, NativeBridge& bridge) :
         cache_(cache),
         rpc_(rpc),
-        bridge_(bridge),
-        spawn_task_(std::move(spawn_task))
+        bridge_(bridge)
     {
     }
 
@@ -169,11 +169,7 @@ public:
             return true;
         });
         if (found) {
-            self.spawn_task_([&self](std::stop_token token) {
-                if (!token.stop_requested()) {
-                    self.process_due();
-                }
-            });
+            self.wake_worker();
         }
         return {};
     }
@@ -203,12 +199,18 @@ public:
     auto start(this OutboxManager& self) -> void
     {
         self.stop();
+        {
+            std::scoped_lock lock{self.wake_mutex_};
+            self.wake_requested_ = false;
+        }
         self.outbox_thread_ = std::jthread([&self](std::stop_token token) {
             while (!token.stop_requested()) {
                 self.process_due();
-                for (auto tick = 0; tick < 50 && !token.stop_requested(); ++tick) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds{100});
-                }
+                std::unique_lock lock{self.wake_mutex_};
+                self.wake_cv_.wait_for(lock, std::chrono::seconds{5}, [&] {
+                    return token.stop_requested() || self.wake_requested_;
+                });
+                self.wake_requested_ = false;
             }
         });
     }
@@ -217,11 +219,21 @@ public:
     {
         if (self.outbox_thread_.joinable()) {
             self.outbox_thread_.request_stop();
+            self.wake_worker();
             self.outbox_thread_.join();
         }
     }
 
 private:
+    auto wake_worker(this OutboxManager& self) -> void
+    {
+        {
+            std::scoped_lock lock{self.wake_mutex_};
+            self.wake_requested_ = true;
+        }
+        self.wake_cv_.notify_one();
+    }
+
     auto process_due(this OutboxManager& self) -> void
     {
         const auto now = detail::now_iso();
@@ -356,8 +368,10 @@ private:
     storage::CacheDatabase& cache_;
     RpcClient& rpc_;
     NativeBridge& bridge_;
-    NativeTaskSpawner spawn_task_;
     std::jthread outbox_thread_;
+    std::mutex wake_mutex_;
+    std::condition_variable wake_cv_;
+    bool wake_requested_ = false;
 };
 
 }

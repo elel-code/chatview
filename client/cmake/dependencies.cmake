@@ -50,23 +50,6 @@ FetchContent_Declare(
 )
 
 FetchContent_Declare(
-    sml
-    GIT_TAG v1.1.13
-    GIT_REPOSITORY "https://github.com/boost-ext/sml.git"
-    EXCLUDE_FROM_ALL
-    SYSTEM
-    GIT_SHALLOW TRUE
-)
-
-FetchContent_Declare(
-    libsodium
-    GIT_REPOSITORY "https://github.com/robinlinden/libsodium-cmake.git"
-    GIT_TAG cfebfd3da486d5a86c644c8b47067e5411c7599c
-    EXCLUDE_FROM_ALL
-    SYSTEM
-)
-
-FetchContent_Declare(
     sqlite_orm
     GIT_REPOSITORY "https://github.com/fnc12/sqlite_orm.git"
     GIT_TAG v1.9.1
@@ -82,7 +65,5 @@ FetchContent_MakeAvailable(
     asio_grpc
     glaze
     saucer
-    sml
-    libsodium
     sqlite_orm
 )

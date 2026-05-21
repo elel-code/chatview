@@ -6,10 +6,8 @@ module;
 #include <filesystem>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -296,16 +294,8 @@ private:
         bridge_(std::move(dispatcher)),
         session_(std::move(identity), *rpc_),
         cache_controller_(cache_, *rpc_, bridge_),
-        outbox_(cache_, *rpc_, bridge_, [this](NativeTask task) {
-            this->spawn_task(std::move(task));
-        })
+        outbox_(cache_, *rpc_, bridge_)
     {
-    }
-
-    auto spawn_task(this NativeClient& self, NativeTask task) -> void
-    {
-        std::scoped_lock lock{self.async_mutex_};
-        self.async_threads_.emplace_back(std::move(task));
     }
 
     auto start_event_stream(this NativeClient& self) -> void
@@ -326,8 +316,6 @@ private:
     SessionController session_;
     CacheController cache_controller_;
     OutboxManager outbox_;
-    std::mutex async_mutex_;
-    std::vector<std::jthread> async_threads_;
 };
 
 export auto default_options() -> NativeClientOptions

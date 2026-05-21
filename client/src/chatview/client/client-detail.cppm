@@ -20,8 +20,6 @@ module;
 #include <string_view>
 #include <vector>
 
-#include <sodium.h>
-
 export module chatview.client:detail;
 
 import :types;
@@ -33,22 +31,20 @@ namespace chatview::client::detail
 {
 using ByteVector = std::vector<unsigned char>;
 
-constexpr std::array<char, 8> identity_magic = {'C', 'H', 'T', 'V', 'I', 'D', '0', '1'};
+constexpr std::array<char, 8> identity_magic = {'C', 'H', 'T', 'V', 'I', 'D', '0', '2'};
 constexpr auto max_rpc_attempts = 2;
 
-class SodiumBufferCleanup
+class SecureBufferCleanup
 {
 public:
-    explicit SodiumBufferCleanup(std::span<unsigned char> bytes) : bytes_{bytes} {}
+    explicit SecureBufferCleanup(std::span<unsigned char> bytes) : bytes_{bytes} {}
 
-    SodiumBufferCleanup(const SodiumBufferCleanup&) = delete;
-    auto operator=(const SodiumBufferCleanup&) -> SodiumBufferCleanup& = delete;
+    SecureBufferCleanup(const SecureBufferCleanup&) = delete;
+    auto operator=(const SecureBufferCleanup&) -> SecureBufferCleanup& = delete;
 
-    ~SodiumBufferCleanup()
+    ~SecureBufferCleanup()
     {
-        if (!bytes_.empty()) {
-            sodium_memzero(bytes_.data(), bytes_.size());
-        }
+        bssl::secure_zero(bytes_);
     }
 
 private:
@@ -115,9 +111,28 @@ auto now_iso() -> std::string
 
 auto to_hex(std::span<const unsigned char> bytes) -> std::string
 {
+    constexpr std::array<char, 16> digits = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
     std::string hex(bytes.size() * 2, '\0');
-    sodium_bin2hex(hex.data(), hex.size() + 1, bytes.data(), bytes.size());
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        hex[i * 2] = digits[bytes[i] >> 4];
+        hex[i * 2 + 1] = digits[bytes[i] & 0x0f];
+    }
     return hex;
+}
+
+auto hex_value(char ch) -> std::optional<unsigned char>
+{
+    if (ch >= '0' && ch <= '9') {
+        return static_cast<unsigned char>(ch - '0');
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        return static_cast<unsigned char>(ch - 'a' + 10);
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        return static_cast<unsigned char>(ch - 'A' + 10);
+    }
+    return std::nullopt;
 }
 
 auto from_hex(std::string_view hex) -> std::expected<ByteVector, std::string>
@@ -127,33 +142,21 @@ auto from_hex(std::string_view hex) -> std::expected<ByteVector, std::string>
     }
 
     ByteVector bytes(hex.size() / 2);
-    const auto rc = sodium_hex2bin(
-        bytes.data(),
-        bytes.size(),
-        hex.data(),
-        hex.size(),
-        nullptr,
-        nullptr,
-        nullptr);
-    if (rc != 0) {
-        return std::unexpected{"invalid hex data"};
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        const auto high = hex_value(hex[i * 2]);
+        const auto low = hex_value(hex[i * 2 + 1]);
+        if (!high || !low) {
+            return std::unexpected{"invalid hex data"};
+        }
+        bytes[i] = static_cast<unsigned char>((*high << 4) | *low);
     }
     return bytes;
 }
 
 auto derive_key(std::string_view pin, std::span<const unsigned char> salt) -> std::expected<ByteVector, std::string>
 {
-    ByteVector key(crypto_secretstream_xchacha20poly1305_KEYBYTES);
-    const auto rc = crypto_pwhash(
-        key.data(),
-        key.size(),
-        pin.data(),
-        pin.size(),
-        salt.data(),
-        crypto_pwhash_OPSLIMIT_MODERATE,
-        crypto_pwhash_MEMLIMIT_MODERATE,
-        crypto_pwhash_ALG_ARGON2ID13);
-    if (rc != 0) {
+    ByteVector key(bssl::xchacha20_poly1305_key_size());
+    if (!bssl::derive_scrypt_key(key, pin, salt)) {
         return std::unexpected{"key derivation failed"};
     }
     return key;
@@ -205,41 +208,33 @@ auto encrypt_seed(
     std::span<const unsigned char> seed,
     std::string_view pin) -> ExpectedVoid
 {
-    constexpr auto salt_size = crypto_pwhash_SALTBYTES;
-    constexpr auto header_size = crypto_secretstream_xchacha20poly1305_HEADERBYTES;
-    constexpr auto abytes = crypto_secretstream_xchacha20poly1305_ABYTES;
+    const auto salt_size = bssl::identity_salt_size;
+    const auto nonce_size = bssl::xchacha20_poly1305_nonce_size();
+    const auto overhead = bssl::xchacha20_poly1305_overhead();
 
-    std::array<unsigned char, salt_size> salt{};
-    randombytes_buf(salt.data(), salt.size());
+    ByteVector salt(salt_size);
+    ByteVector nonce(nonce_size);
+    if (!bssl::random_bytes(salt) || !bssl::random_bytes(nonce)) {
+        return std::unexpected{"random generation failed"};
+    }
 
     auto key = derive_key(pin, salt);
     if (!key) {
         return std::unexpected{key.error()};
     }
+    SecureBufferCleanup key_cleanup{std::span<unsigned char>{*key}};
 
-    crypto_secretstream_xchacha20poly1305_state state;
-    std::array<unsigned char, header_size> header{};
-    crypto_secretstream_xchacha20poly1305_init_push(&state, header.data(), key->data());
-
-    ByteVector cipher(seed.size() + abytes);
-    unsigned long long cipher_size = 0;
-    crypto_secretstream_xchacha20poly1305_push(
-        &state,
-        cipher.data(),
-        &cipher_size,
-        seed.data(),
-        static_cast<unsigned long long>(seed.size()),
-        nullptr,
-        0,
-        crypto_secretstream_xchacha20poly1305_TAG_FINAL);
-
-    sodium_memzero(key->data(), key->size());
+    ByteVector cipher(seed.size() + overhead);
+    std::size_t cipher_size = 0;
+    if (!bssl::xchacha20_poly1305_seal(cipher, cipher_size, *key, nonce, seed)) {
+        return std::unexpected{"identity encryption failed"};
+    }
 
     ByteVector payload;
-    payload.reserve(identity_magic.size() + salt_size + header_size + cipher_size);
+    payload.reserve(identity_magic.size() + salt.size() + nonce.size() + cipher_size);
     payload.insert(payload.end(), identity_magic.begin(), identity_magic.end());
     payload.insert(payload.end(), salt.begin(), salt.end());
-    payload.insert(payload.end(), header.begin(), header.end());
+    payload.insert(payload.end(), nonce.begin(), nonce.end());
     payload.insert(payload.end(), cipher.begin(), cipher.begin() + static_cast<std::ptrdiff_t>(cipher_size));
 
     return write_file(path, payload);
@@ -252,11 +247,11 @@ auto decrypt_seed(const std::filesystem::path& path, std::string_view pin) -> st
         return std::unexpected{file.error()};
     }
 
-    constexpr auto salt_size = crypto_pwhash_SALTBYTES;
-    constexpr auto header_size = crypto_secretstream_xchacha20poly1305_HEADERBYTES;
-    constexpr auto abytes = crypto_secretstream_xchacha20poly1305_ABYTES;
+    const auto salt_size = bssl::identity_salt_size;
+    const auto nonce_size = bssl::xchacha20_poly1305_nonce_size();
+    const auto overhead = bssl::xchacha20_poly1305_overhead();
 
-    constexpr auto min_size = identity_magic.size() + salt_size + header_size + abytes;
+    const auto min_size = identity_magic.size() + salt_size + nonce_size + overhead;
 
     if (file->size() < min_size) {
         return std::unexpected{"invalid identity file"};
@@ -269,8 +264,8 @@ auto decrypt_seed(const std::filesystem::path& path, std::string_view pin) -> st
     auto it = file->begin() + static_cast<std::ptrdiff_t>(identity_magic.size());
     const auto* salt = &*it;
     it += static_cast<std::ptrdiff_t>(salt_size);
-    const auto* header = &*it;
-    it += static_cast<std::ptrdiff_t>(header_size);
+    const auto* nonce = &*it;
+    it += static_cast<std::ptrdiff_t>(nonce_size);
     const auto* encrypted_begin = &*it;
     const auto encrypted_size = static_cast<std::size_t>(file->end() - it);
 
@@ -278,34 +273,20 @@ auto decrypt_seed(const std::filesystem::path& path, std::string_view pin) -> st
     if (!key) {
         return std::unexpected{key.error()};
     }
-
-    crypto_secretstream_xchacha20poly1305_state state;
-    if (crypto_secretstream_xchacha20poly1305_init_pull(&state, header, key->data()) != 0) {
-        sodium_memzero(key->data(), key->size());
-        return std::unexpected{"invalid identity header"};
-    }
+    SecureBufferCleanup key_cleanup{std::span<unsigned char>{*key}};
 
     ByteVector seed(static_cast<std::size_t>(encrypted_size));
-    unsigned long long seed_size = 0;
-    unsigned char tag = 0;
-    const auto rc = crypto_secretstream_xchacha20poly1305_pull(
-        &state,
-        seed.data(),
-        &seed_size,
-        &tag,
-        encrypted_begin,
-        static_cast<unsigned long long>(encrypted_size),
-        nullptr,
-        0);
-
-    sodium_memzero(key->data(), key->size());
-    sodium_memzero(&state, sizeof(state));
-
-    if (rc != 0 || tag != crypto_secretstream_xchacha20poly1305_TAG_FINAL) {
+    std::size_t seed_size = 0;
+    if (!bssl::xchacha20_poly1305_open(
+            seed,
+            seed_size,
+            *key,
+            {nonce, nonce_size},
+            {encrypted_begin, encrypted_size})) {
         return std::unexpected{"wrong pin"};
     }
     seed.resize(static_cast<std::size_t>(seed_size));
-    if (seed.size() != crypto_sign_SEEDBYTES) {
+    if (seed.size() != bssl::ed25519_seed_size) {
         return std::unexpected{"invalid identity payload"};
     }
     return seed;
@@ -313,13 +294,15 @@ auto decrypt_seed(const std::filesystem::path& path, std::string_view pin) -> st
 
 auto seed_to_keypair(std::span<const unsigned char> seed) -> std::expected<std::pair<ByteVector, ByteVector>, std::string>
 {
-    if (seed.size() != crypto_sign_SEEDBYTES) {
+    if (seed.size() != bssl::ed25519_seed_size) {
         return std::unexpected{"invalid private key size"};
     }
 
-    ByteVector public_key(crypto_sign_PUBLICKEYBYTES);
-    ByteVector secret_key(crypto_sign_SECRETKEYBYTES);
-    crypto_sign_seed_keypair(public_key.data(), secret_key.data(), seed.data());
+    ByteVector public_key(bssl::ed25519_public_key_size);
+    ByteVector secret_key(bssl::ed25519_private_key_size);
+    if (!bssl::ed25519_keypair_from_seed(public_key, secret_key, seed)) {
+        return std::unexpected{"failed to derive keypair"};
+    }
     return std::pair{std::move(public_key), std::move(secret_key)};
 }
 
@@ -329,12 +312,12 @@ auto seed_from_private_hex(std::string_view private_key_hex) -> std::expected<By
     if (!bytes) {
         return std::unexpected{bytes.error()};
     }
-    if (bytes->size() == crypto_sign_SEEDBYTES) {
+    if (bytes->size() == bssl::ed25519_seed_size) {
         return bytes;
     }
-    if (bytes->size() == crypto_sign_SECRETKEYBYTES) {
-        ByteVector seed(bytes->begin(), bytes->begin() + crypto_sign_SEEDBYTES);
-        sodium_memzero(bytes->data(), bytes->size());
+    if (bytes->size() == bssl::ed25519_private_key_size) {
+        ByteVector seed(bytes->begin(), bytes->begin() + static_cast<std::ptrdiff_t>(bssl::ed25519_seed_size));
+        bssl::secure_zero(*bytes);
         return seed;
     }
     return std::unexpected{"private key must be 32-byte seed or 64-byte Ed25519 secret key hex"};

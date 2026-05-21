@@ -55,7 +55,7 @@ public:
         }
 
         const auto public_key = detail::to_hex(keypair->first);
-        detail::SodiumBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
+        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
         auto result = self.rpc_.login(public_key, keypair->second);
 
         if (!result) {
@@ -66,7 +66,7 @@ public:
         {
             std::scoped_lock lock{self.auth_mutex_};
             self.remaining_attempts_ = 5;
-            self.locked_until_.reset();
+            self.locked_until_ = {};
         }
         return result;
     }
@@ -85,7 +85,7 @@ public:
 
         const auto public_key = detail::to_hex(keypair->first);
         auto secret_key = std::move(keypair->second);
-        detail::SodiumBufferCleanup secret_cleanup{std::span<unsigned char>{secret_key}};
+        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{secret_key}};
         auto result = co_await self.rpc_.login_async(public_key, std::move(secret_key));
 
         if (!result) {
@@ -96,7 +96,7 @@ public:
         {
             std::scoped_lock lock{self.auth_mutex_};
             self.remaining_attempts_ = 5;
-            self.locked_until_.reset();
+            self.locked_until_ = {};
         }
         co_return result;
     }
@@ -115,14 +115,14 @@ public:
     auto current_lock_state(this SessionController& self) -> AuthLockState
     {
         std::scoped_lock lock{self.auth_mutex_};
-        if (self.locked_until_ && *self.locked_until_ <= std::chrono::system_clock::now()) {
-            self.locked_until_.reset();
+        if (self.locked_until_ && self.locked_until_->steady_until <= std::chrono::steady_clock::now()) {
+            self.locked_until_ = {};
             self.remaining_attempts_ = 5;
         }
 
         auto locked_until = std::optional<std::string>{};
         if (self.locked_until_) {
-            locked_until = detail::to_iso(*self.locked_until_);
+            locked_until = detail::to_iso(self.locked_until_->system_until);
         }
 
         return AuthLockState{.lockedUntil = std::move(locked_until), .remainingAttempts = self.remaining_attempts_};
@@ -134,15 +134,24 @@ private:
         std::scoped_lock lock{self.auth_mutex_};
         self.remaining_attempts_ = std::max(0, self.remaining_attempts_ - 1);
         if (self.remaining_attempts_ == 0) {
-            self.locked_until_ = std::chrono::system_clock::now() + std::chrono::seconds{30};
+            self.locked_until_ = Lockout{
+                .steady_until = std::chrono::steady_clock::now() + std::chrono::seconds{30},
+                .system_until = std::chrono::system_clock::now() + std::chrono::seconds{30},
+            };
         }
     }
+
+    struct Lockout
+    {
+        std::chrono::steady_clock::time_point steady_until;
+        std::chrono::system_clock::time_point system_until;
+    };
 
     IdentityStore identity_;
     RpcClient& rpc_;
     std::mutex auth_mutex_;
     int remaining_attempts_ = 5;
-    std::optional<std::chrono::system_clock::time_point> locked_until_;
+    std::optional<Lockout> locked_until_;
 };
 
 }

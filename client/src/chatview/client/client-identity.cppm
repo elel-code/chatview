@@ -9,12 +9,11 @@ module;
 #include <string>
 #include <string_view>
 
-#include <sodium.h>
-
 export module chatview.client:identity;
 
 import :types;
 import :detail;
+import asio_grpc;
 
 namespace chatview::client
 {
@@ -24,9 +23,6 @@ class IdentityStore
 public:
     static auto create(const std::filesystem::path& path) -> std::expected<IdentityStore, std::string>
     {
-        if (sodium_init() < 0) {
-            return std::unexpected{"failed to initialize libsodium"};
-        }
         return IdentityStore{path};
     }
 
@@ -38,15 +34,17 @@ public:
     auto create_identity(this const IdentityStore& self, const std::string& pin) -> std::expected<IdentityResult, std::string>
     {
         try {
-            std::array<unsigned char, crypto_sign_SEEDBYTES> seed{};
-            randombytes_buf(seed.data(), seed.size());
-            detail::SodiumBufferCleanup seed_cleanup{std::span<unsigned char>{seed}};
+            std::array<unsigned char, bssl::ed25519_seed_size> seed{};
+            if (!bssl::random_bytes(seed)) {
+                return std::unexpected{"random generation failed"};
+            }
+            detail::SecureBufferCleanup seed_cleanup{std::span<unsigned char>{seed}};
 
             auto keypair = detail::seed_to_keypair(seed);
             if (!keypair) {
                 return std::unexpected{keypair.error()};
             }
-            detail::SodiumBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
+            detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
 
             auto saved = detail::encrypt_seed(self.path_, seed, pin);
             if (!saved) {
@@ -68,7 +66,7 @@ public:
             if (!seed) {
                 return std::unexpected{seed.error()};
             }
-            detail::SodiumBufferCleanup seed_cleanup{std::span<unsigned char>{*seed}};
+            detail::SecureBufferCleanup seed_cleanup{std::span<unsigned char>{*seed}};
             auto saved = detail::encrypt_seed(self.path_, *seed, pin);
             return saved;
         } catch (const std::exception& ex) {
@@ -82,7 +80,7 @@ public:
         if (!seed) {
             return std::unexpected{seed.error()};
         }
-        detail::SodiumBufferCleanup seed_cleanup{std::span<unsigned char>{*seed}};
+        detail::SecureBufferCleanup seed_cleanup{std::span<unsigned char>{*seed}};
         auto keypair = detail::seed_to_keypair(*seed);
         return keypair;
     }
@@ -93,7 +91,7 @@ public:
         if (!keypair) {
             return std::unexpected{keypair.error()};
         }
-        detail::SodiumBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
+        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
         auto secret_hex = detail::to_hex(keypair->second);
         return secret_hex;
     }
