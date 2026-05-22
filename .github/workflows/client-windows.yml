@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   build:
-    name: Build client (${{ inputs.build_type }}, MSVC)
+    name: Build client (${{ inputs.build_type }}, clang-cl)
     runs-on: windows-latest
     timeout-minutes: 120
 
@@ -66,8 +66,8 @@ jobs:
           )
 
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          cl
-          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_LINKER_TYPE=DEFAULT
+          clang-cl --version
+          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_LINKER_TYPE=LLD
 
       - name: Build client
         shell: cmd
@@ -105,7 +105,7 @@ jobs:
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v4
         with:
-          name: chatview-client-windows-${{ inputs.build_type }}-msvc
+          name: chatview-client-windows-${{ inputs.build_type }}-clang-cl
           if-no-files-found: error
           path: |
             client/build/${{ inputs.build_type }}/src/chatview/chatview_client.exe
