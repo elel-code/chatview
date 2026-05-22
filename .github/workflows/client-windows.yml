@@ -65,7 +65,7 @@ jobs:
             exit /b 1
           )
 
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cl
           cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_LINKER_TYPE=DEFAULT
 
@@ -81,7 +81,7 @@ jobs:
             exit /b 1
           )
 
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake --build --preset %PRESET% --parallel
 
       - name: Test client
@@ -97,7 +97,7 @@ jobs:
             exit /b 1
           )
 
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake --build --preset %PRESET% --target chatview_client_local_tests --parallel
           ctest --test-dir build\%PRESET% --output-on-failure
 
