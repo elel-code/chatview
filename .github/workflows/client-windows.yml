@@ -10,10 +10,6 @@ on:
           - release
           - debug
         default: release
-      llvm_version:
-        description: LLVM/Clang version to install.
-        type: string
-        default: 22.1.6
       run_tests:
         description: Run client CTest targets after building.
         type: boolean
@@ -28,7 +24,7 @@ permissions:
 
 jobs:
   build:
-    name: Build client (${{ inputs.build_type }}, Clang ${{ inputs.llvm_version }})
+    name: Build client (${{ inputs.build_type }}, MSVC)
     runs-on: windows-latest
     timeout-minutes: 120
 
@@ -51,21 +47,6 @@ jobs:
           cmake --version
           ninja --version
 
-      - name: Install LLVM/Clang
-        env:
-          LLVM_VERSION: ${{ inputs.llvm_version }}
-          LLVM_ROOT: C:\LLVM
-        run: |
-          $installer = Join-Path $env:RUNNER_TEMP "LLVM-$env:LLVM_VERSION-win64.exe"
-          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/LLVM-$env:LLVM_VERSION-win64.exe"
-
-          Invoke-WebRequest -Uri $url -OutFile $installer
-          Start-Process -FilePath $installer -ArgumentList "/S", "/D=$env:LLVM_ROOT" -Wait
-
-          "$env:LLVM_ROOT\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & "$env:LLVM_ROOT\bin\clang++.exe" --version
-          & "$env:LLVM_ROOT\bin\lld-link.exe" --version
-
       - name: Build frontend
         working-directory: frontend
         run: |
@@ -85,7 +66,8 @@ jobs:
           )
 
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
-          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist"
+          cl
+          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_LINKER_TYPE=DEFAULT
 
       - name: Build client
         shell: cmd
@@ -123,7 +105,7 @@ jobs:
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v4
         with:
-          name: chatview-client-windows-${{ inputs.build_type }}-clang-${{ inputs.llvm_version }}
+          name: chatview-client-windows-${{ inputs.build_type }}-msvc
           if-no-files-found: error
           path: |
             client/build/${{ inputs.build_type }}/src/chatview/chatview_client.exe
