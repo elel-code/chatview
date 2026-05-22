@@ -1,0 +1,133 @@
+name: Client Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: CMake preset to build.
+        type: choice
+        options:
+          - release
+          - debug
+        default: release
+      llvm_version:
+        description: LLVM/Clang version to install.
+        type: string
+        default: 22.1.6
+      run_tests:
+        description: Run client CTest targets after building.
+        type: boolean
+        default: false
+      upload_artifact:
+        description: Upload the built Windows executable.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build client (${{ inputs.build_type }}, Clang ${{ inputs.llvm_version }})
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Set up CMake and Ninja
+        run: |
+          python -m pip install --upgrade "cmake>=4.3,<4.4" ninja
+          cmake --version
+          ninja --version
+
+      - name: Install LLVM/Clang
+        env:
+          LLVM_VERSION: ${{ inputs.llvm_version }}
+          LLVM_ROOT: C:\LLVM
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "LLVM-$env:LLVM_VERSION-win64.exe"
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/LLVM-$env:LLVM_VERSION-win64.exe"
+
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList "/S", "/D=$env:LLVM_ROOT" -Wait
+
+          "$env:LLVM_ROOT\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$env:LLVM_ROOT\bin\clang++.exe" --version
+          & "$env:LLVM_ROOT\bin\lld-link.exe" --version
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          deno install --frozen
+          deno task build
+
+      - name: Configure client
+        shell: cmd
+        env:
+          PRESET: ${{ inputs.build_type }}
+          BUILD_TESTS: ${{ inputs.run_tests && 'ON' || 'OFF' }}
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH (
+            echo Visual Studio with VC x64 tools was not found.
+            exit /b 1
+          )
+
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
+          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist"
+
+      - name: Build client
+        shell: cmd
+        working-directory: client
+        env:
+          PRESET: ${{ inputs.build_type }}
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH (
+            echo Visual Studio with VC x64 tools was not found.
+            exit /b 1
+          )
+
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
+          cmake --build --preset %PRESET% --parallel
+
+      - name: Test client
+        if: ${{ inputs.run_tests }}
+        shell: cmd
+        working-directory: client
+        env:
+          PRESET: ${{ inputs.build_type }}
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          if not defined VS_PATH (
+            echo Visual Studio with VC x64 tools was not found.
+            exit /b 1
+          )
+
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" -arch=x64 -host_arch=x64
+          cmake --build --preset %PRESET% --target chatview_client_local_tests --parallel
+          ctest --test-dir build\%PRESET% --output-on-failure
+
+      - name: Upload executable
+        if: ${{ inputs.upload_artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatview-client-windows-${{ inputs.build_type }}-clang-${{ inputs.llvm_version }}
+          if-no-files-found: error
+          path: |
+            client/build/${{ inputs.build_type }}/src/chatview/chatview_client.exe
+            client/build/${{ inputs.build_type }}/src/chatview/*.dll
+            client/build/${{ inputs.build_type }}/src/chatview/*.pdb
+            client/build/${{ inputs.build_type }}/*.dll
+            client/build/${{ inputs.build_type }}/*.pdb

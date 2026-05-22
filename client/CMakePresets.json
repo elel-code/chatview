@@ -37,12 +37,18 @@
     {
       "name": "debug",
       "displayName": "Debug 构建",
-      "configurePreset": "debug"
+      "configurePreset": "debug",
+      "targets": [
+        "chatview_client"
+      ]
     },
     {
       "name": "release",
       "displayName": "Release 构建",
-      "configurePreset": "release"
+      "configurePreset": "release",
+      "targets": [
+        "chatview_client"
+      ]
     }
   ],
   "testPresets": [
