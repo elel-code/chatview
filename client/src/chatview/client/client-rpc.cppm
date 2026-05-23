@@ -31,21 +31,118 @@ import chatview.proto.chat;
 import chatview.proto.events;
 import chatview.proto.admin;
 
+#define CHATVIEW_CLIENT_UNARY_ONCE(self_expr, prepare_async, stub_expr, req_expr, resp_expr, timeout_expr)                \
+    ([&]() -> grpc::Status {                                                                                              \
+        using RPC = agrpc::ClientRPC<prepare_async>;                                                                      \
+        auto status = std::make_shared<grpc::Status>();                                                                   \
+        auto completion = std::make_shared<std::promise<grpc::Status>>();                                                 \
+        auto completion_future = completion->get_future();                                                                \
+        auto context = (self_expr).make_context(timeout_expr);                                                            \
+        asio::co_spawn(                                                                                                   \
+            (self_expr).grpc_context_,                                                                                    \
+            [&, context = std::move(context), status]() mutable -> asio::awaitable<void> {                                \
+                *status = co_await RPC::request(                                                                          \
+                    (self_expr).grpc_context_, (stub_expr), *context, (req_expr), (resp_expr), asio::use_awaitable);      \
+            },                                                                                                            \
+            [status, completion](std::exception_ptr exception) {                                                          \
+                if (exception) {                                                                                          \
+                    *status = rpc_detail::exception_status(exception);                                                    \
+                }                                                                                                         \
+                completion->set_value(*status);                                                                           \
+            });                                                                                                           \
+        return completion_future.get();                                                                                   \
+    }())
+
+#define CHATVIEW_CLIENT_UNARY_ONCE_ASYNC(self_expr, prepare_async, stub_expr, req_expr, resp_expr, timeout_expr)          \
+    ([&]() {                                                                                                               \
+        using RPC = agrpc::ClientRPC<prepare_async>;                                                                      \
+        struct Awaiter                                                                                                    \
+        {                                                                                                                 \
+            RpcClient& self;                                                                                              \
+            decltype(stub_expr)& stub;                                                                                    \
+            const decltype(req_expr)& request;                                                                            \
+            decltype(resp_expr)& response;                                                                                \
+            std::chrono::steady_clock::duration timeout;                                                                  \
+            std::shared_ptr<grpc::Status> status = std::make_shared<grpc::Status>();                                      \
+            auto await_ready() const noexcept -> bool { return false; }                                                   \
+            auto await_suspend(std::coroutine_handle<> continuation) -> bool                                              \
+            {                                                                                                             \
+                try {                                                                                                     \
+                    auto context = self.make_context(timeout);                                                            \
+                    auto completion_status = status;                                                                      \
+                    auto& grpc_context = self.grpc_context_;                                                              \
+                    auto& rpc_stub = stub;                                                                                \
+                    auto& rpc_request = request;                                                                          \
+                    auto& rpc_response = response;                                                                        \
+                    asio::co_spawn(                                                                                       \
+                        grpc_context,                                                                                     \
+                        [&grpc_context, &rpc_stub, &rpc_request, &rpc_response, context = std::move(context),             \
+                         completion_status]() mutable -> asio::awaitable<void> {                                          \
+                            *completion_status = co_await RPC::request(                                                   \
+                                grpc_context, rpc_stub, *context, rpc_request, rpc_response, asio::use_awaitable);        \
+                        },                                                                                                \
+                        [continuation, completion_status](std::exception_ptr exception) mutable {                         \
+                            if (exception) {                                                                              \
+                                *completion_status = rpc_detail::exception_status(exception);                             \
+                            }                                                                                             \
+                            continuation.resume();                                                                        \
+                        });                                                                                               \
+                    return true;                                                                                          \
+                } catch (...) {                                                                                           \
+                    *status = rpc_detail::exception_status(std::current_exception());                                     \
+                    return false;                                                                                         \
+                }                                                                                                         \
+            }                                                                                                             \
+            auto await_resume() -> grpc::Status { return *status; }                                                       \
+        };                                                                                                                \
+        return Awaiter{                                                                                                   \
+            .self = (self_expr),                                                                                          \
+            .stub = (stub_expr),                                                                                          \
+            .request = (req_expr),                                                                                        \
+            .response = (resp_expr),                                                                                      \
+            .timeout = (timeout_expr),                                                                                    \
+        };                                                                                                                \
+    }())
+
+#define CHATVIEW_CLIENT_CALL_WITH_RETRY(self_expr, prepare_async, stub_expr, req_expr, resp_expr)                         \
+    ([&]() -> grpc::Status {                                                                                              \
+        grpc::Status status;                                                                                              \
+        for (auto attempt = 0; attempt < detail::max_rpc_attempts; ++attempt) {                                           \
+            status = CHATVIEW_CLIENT_UNARY_ONCE(                                                                          \
+                self_expr, prepare_async, stub_expr, req_expr, resp_expr, std::chrono::seconds{10});                     \
+            if (status.ok()) {                                                                                            \
+                return status;                                                                                            \
+            }                                                                                                             \
+            if (status.error_code() != grpc::StatusCode::UNAVAILABLE &&                                                   \
+                status.error_code() != grpc::StatusCode::DEADLINE_EXCEEDED) {                                            \
+                return status;                                                                                            \
+            }                                                                                                             \
+        }                                                                                                                 \
+        return status;                                                                                                    \
+    }())
+
+#define CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self_expr, prepare_async, stub_expr, req_expr, resp_expr)                   \
+    ([&]() -> coco::task<grpc::Status> {                                                                                  \
+        grpc::Status status;                                                                                              \
+        for (auto attempt = 0; attempt < detail::max_rpc_attempts; ++attempt) {                                           \
+            status = co_await CHATVIEW_CLIENT_UNARY_ONCE_ASYNC(                                                           \
+                self_expr, prepare_async, stub_expr, req_expr, resp_expr, std::chrono::seconds{10});                     \
+            if (status.ok()) {                                                                                            \
+                co_return status;                                                                                         \
+            }                                                                                                             \
+            if (status.error_code() != grpc::StatusCode::UNAVAILABLE &&                                                   \
+                status.error_code() != grpc::StatusCode::DEADLINE_EXCEEDED) {                                            \
+                co_return status;                                                                                         \
+            }                                                                                                             \
+        }                                                                                                                 \
+        co_return status;                                                                                                 \
+    }())
+
 namespace chatview::client
 {
 
-class RpcClient;
-
 namespace rpc_detail
 {
-struct RpcClientAccess;
-
-template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-auto call_with_retry(RpcClient& self, Stub& stub, const Request& request, Response& response) -> grpc::Status;
-
-template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-auto call_with_retry_async(RpcClient& self, Stub& stub, const Request& request, Response& response) -> coco::task<grpc::Status>;
-
 auto exception_status(std::exception_ptr exception) -> grpc::Status
 {
     try {
@@ -164,11 +261,7 @@ public:
         challenge_req.set_pub_key(public_key_hex);
 
         chatview::proto::auth::RequestChallengeResp challenge_resp;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge>(
-            self,
-            *self.auth_stub_,
-            challenge_req,
-            challenge_resp);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge, *self.auth_stub_, challenge_req, challenge_resp);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -189,11 +282,7 @@ public:
         login_req.set_challenge_signature(signature.data(), signature.size());
 
         chatview::proto::auth::LoginResp login_resp;
-        status = rpc_detail::call_with_retry<&chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin>(
-            self,
-            *self.auth_stub_,
-            login_req,
-            login_resp);
+        status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin, *self.auth_stub_, login_req, login_resp);
         if (!status.ok()) {
             if (status.error_code() == grpc::StatusCode::PERMISSION_DENIED) {
                 return std::unexpected{"account banned"};
@@ -218,11 +307,7 @@ public:
         challenge_req.set_pub_key(public_key_hex);
 
         chatview::proto::auth::RequestChallengeResp challenge_resp;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge>(
-            self,
-            *self.auth_stub_,
-            challenge_req,
-            challenge_resp);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge, *self.auth_stub_, challenge_req, challenge_resp);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -243,11 +328,7 @@ public:
         login_req.set_challenge_signature(signature.data(), signature.size());
 
         chatview::proto::auth::LoginResp login_resp;
-        status = co_await rpc_detail::call_with_retry_async<&chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin>(
-            self,
-            *self.auth_stub_,
-            login_req,
-            login_resp);
+        status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin, *self.auth_stub_, login_req, login_resp);
         if (!status.ok()) {
             if (status.error_code() == grpc::StatusCode::PERMISSION_DENIED) {
                 co_return std::unexpected{"account banned"};
@@ -280,11 +361,7 @@ public:
     {
         chatview::proto::chat::ListFriendsResp response;
         chatview::proto::chat::ListFriendsReq request;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends, *self.chat_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -295,11 +372,7 @@ public:
     {
         chatview::proto::chat::ListFriendsResp response;
         chatview::proto::chat::ListFriendsReq request;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends, *self.chat_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -318,11 +391,7 @@ public:
         request.set_client_message_id(client_message_id);
 
         chatview::proto::chat::SendMessageResp response;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage, *self.chat_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -341,11 +410,7 @@ public:
         request.set_client_message_id(std::move(client_message_id));
 
         chatview::proto::chat::SendMessageResp response;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage, *self.chat_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -364,11 +429,7 @@ public:
         request.set_direction(detail::direction_or_default(query));
 
         chatview::proto::chat::GetMessageHistoryResp response;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory, *self.chat_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -387,11 +448,7 @@ public:
         request.set_direction(detail::direction_or_default(query));
 
         chatview::proto::chat::GetMessageHistoryResp response;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory, *self.chat_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -405,11 +462,7 @@ public:
         request.set_last_read_server_seq(last_read_server_seq);
 
         chatview::proto::chat::MarkConversationReadResp response;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead, *self.chat_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -423,11 +476,7 @@ public:
         request.set_last_read_server_seq(last_read_server_seq);
 
         chatview::proto::chat::MarkConversationReadResp response;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead, *self.chat_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -440,11 +489,7 @@ public:
         request.set_target_pub_key(target_pub_key);
 
         chatview::proto::chat::AddFriendResp response;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend, *self.chat_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -457,11 +502,7 @@ public:
         request.set_target_pub_key(std::move(target_pub_key));
 
         chatview::proto::chat::AddFriendResp response;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend>(
-            self,
-            *self.chat_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend, *self.chat_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -475,11 +516,7 @@ public:
         request.set_status(user_status == "banned" ? chatview::proto::common::USER_STATUS_BANNED : chatview::proto::common::USER_STATUS_ACTIVE);
 
         chatview::proto::admin::SetUserStatusResp response;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus>(
-            self,
-            *self.admin_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus, *self.admin_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -493,11 +530,7 @@ public:
         request.set_status(user_status == "banned" ? chatview::proto::common::USER_STATUS_BANNED : chatview::proto::common::USER_STATUS_ACTIVE);
 
         chatview::proto::admin::SetUserStatusResp response;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus>(
-            self,
-            *self.admin_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus, *self.admin_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -510,11 +543,7 @@ public:
         request.set_text(text);
 
         chatview::proto::admin::BroadcastResp response;
-        auto status = rpc_detail::call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast>(
-            self,
-            *self.admin_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast, *self.admin_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -527,11 +556,7 @@ public:
         request.set_text(std::move(text));
 
         chatview::proto::admin::BroadcastResp response;
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast>(
-            self,
-            *self.admin_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast, *self.admin_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -543,11 +568,7 @@ public:
         chatview::proto::admin::PollAdminEventsReq request;
         chatview::proto::admin::PollAdminEventsResp response;
 
-        auto status = rpc_detail::call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents>(
-            self,
-            *self.admin_stub_,
-            request,
-            response);
+        auto status = CHATVIEW_CLIENT_CALL_WITH_RETRY(self, &chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents, *self.admin_stub_, request, response);
         if (!status.ok()) {
             return std::unexpected{detail::grpc_error(status)};
         }
@@ -574,11 +595,7 @@ public:
         chatview::proto::admin::PollAdminEventsReq request;
         chatview::proto::admin::PollAdminEventsResp response;
 
-        auto status = co_await rpc_detail::call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents>(
-            self,
-            *self.admin_stub_,
-            request,
-            response);
+        auto status = co_await CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC(self, &chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents, *self.admin_stub_, request, response);
         if (!status.ok()) {
             co_return std::unexpected{detail::grpc_error(status)};
         }
@@ -660,8 +677,6 @@ public:
     }
 
 private:
-    friend struct rpc_detail::RpcClientAccess;
-
     auto event_stream_loop(
         this RpcClient& self,
         std::uint64_t generation,
@@ -839,155 +854,9 @@ private:
     agrpc::Alarm* stream_alarm_ = nullptr;
 };
 
-namespace rpc_detail
-{
-struct RpcClientAccess
-{
-    static auto make_context(RpcClient& self, std::chrono::steady_clock::duration timeout) -> std::unique_ptr<grpc::ClientContext>
-    {
-        return self.make_context(timeout);
-    }
-
-    static auto grpc_context(RpcClient& self) -> agrpc::GrpcContext&
-    {
-        return self.grpc_context_;
-    }
-};
-
-template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-auto unary_once(
-    RpcClient& self,
-    Stub& stub,
-    const Request& request,
-    Response& response,
-    std::chrono::steady_clock::duration timeout) -> grpc::Status
-{
-    using RPC = agrpc::ClientRPC<PrepareAsync>;
-
-    auto status = std::make_shared<grpc::Status>();
-    auto completion = std::make_shared<std::promise<grpc::Status>>();
-    auto completion_future = completion->get_future();
-    auto context = RpcClientAccess::make_context(self, timeout);
-    auto& grpc_context = RpcClientAccess::grpc_context(self);
-    asio::co_spawn(
-        grpc_context,
-        [&, context = std::move(context), status]() mutable -> asio::awaitable<void> {
-            *status = co_await RPC::request(grpc_context, stub, *context, request, response, asio::use_awaitable);
-        },
-        [status, completion](std::exception_ptr exception) {
-            if (exception) {
-                *status = exception_status(exception);
-            }
-            completion->set_value(*status);
-        });
-
-    return completion_future.get();
 }
 
-template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-auto unary_once_async(
-    RpcClient& self,
-    Stub& stub,
-    const Request& request,
-    Response& response,
-    std::chrono::steady_clock::duration timeout)
-{
-    using RPC = agrpc::ClientRPC<PrepareAsync>;
-
-    struct Awaiter
-    {
-        RpcClient& self;
-        Stub& stub;
-        const Request& request;
-        Response& response;
-        std::chrono::steady_clock::duration timeout;
-        std::shared_ptr<grpc::Status> status = std::make_shared<grpc::Status>();
-
-        auto await_ready() const noexcept -> bool
-        {
-            return false;
-        }
-
-        auto await_suspend(std::coroutine_handle<> continuation) -> bool
-        {
-            try {
-                auto context = RpcClientAccess::make_context(self, timeout);
-                auto completion_status = status;
-                auto& grpc_context = RpcClientAccess::grpc_context(self);
-                auto& rpc_stub = stub;
-                auto& rpc_request = request;
-                auto& rpc_response = response;
-                asio::co_spawn(
-                    grpc_context,
-                    [&grpc_context, &rpc_stub, &rpc_request, &rpc_response, context = std::move(context), completion_status]() mutable -> asio::awaitable<void> {
-                        *completion_status = co_await RPC::request(
-                            grpc_context,
-                            rpc_stub,
-                            *context,
-                            rpc_request,
-                            rpc_response,
-                            asio::use_awaitable);
-                    },
-                    [continuation, completion_status](std::exception_ptr exception) mutable {
-                        if (exception) {
-                            *completion_status = exception_status(exception);
-                        }
-                        continuation.resume();
-                    });
-                return true;
-            } catch (...) {
-                *status = exception_status(std::current_exception());
-                return false;
-            }
-        }
-
-        auto await_resume() -> grpc::Status
-        {
-            return *status;
-        }
-    };
-
-    return Awaiter{
-        .self = self,
-        .stub = stub,
-        .request = request,
-        .response = response,
-        .timeout = timeout,
-    };
-}
-
-template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-auto call_with_retry(RpcClient& self, Stub& stub, const Request& request, Response& response) -> grpc::Status
-{
-    grpc::Status status;
-    for (auto attempt = 0; attempt < detail::max_rpc_attempts; ++attempt) {
-        status = unary_once<PrepareAsync>(self, stub, request, response, std::chrono::seconds{10});
-        if (status.ok()) {
-            return status;
-        }
-        if (status.error_code() != grpc::StatusCode::UNAVAILABLE && status.error_code() != grpc::StatusCode::DEADLINE_EXCEEDED) {
-            return status;
-        }
-    }
-    return status;
-}
-
-template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-auto call_with_retry_async(RpcClient& self, Stub& stub, const Request& request, Response& response) -> coco::task<grpc::Status>
-{
-    grpc::Status status;
-    for (auto attempt = 0; attempt < detail::max_rpc_attempts; ++attempt) {
-        status = co_await unary_once_async<PrepareAsync>(self, stub, request, response, std::chrono::seconds{10});
-        if (status.ok()) {
-            co_return status;
-        }
-        if (status.error_code() != grpc::StatusCode::UNAVAILABLE && status.error_code() != grpc::StatusCode::DEADLINE_EXCEEDED) {
-            co_return status;
-        }
-    }
-    co_return status;
-}
-
-}
-
-}
+#undef CHATVIEW_CLIENT_CALL_WITH_RETRY_ASYNC
+#undef CHATVIEW_CLIENT_CALL_WITH_RETRY
+#undef CHATVIEW_CLIENT_UNARY_ONCE_ASYNC
+#undef CHATVIEW_CLIENT_UNARY_ONCE
