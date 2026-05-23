@@ -43,22 +43,35 @@ struct glz::meta<chatview::client_config::File>
 
 namespace
 {
-auto parse_config_path(int argc, char** argv) -> std::expected<std::filesystem::path, std::string>
+struct LaunchOptions
 {
+    std::filesystem::path config_path;
+    bool devtools = false;
+};
+
+auto parse_launch_options(int argc, char** argv) -> std::expected<LaunchOptions, std::string>
+{
+    LaunchOptions options;
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg{argv[i]};
         if (arg == "--config") {
             if (i + 1 >= argc) {
                 return std::unexpected{"--config requires a YAML file path"};
             }
-            return std::filesystem::path{argv[i + 1]};
+            options.config_path = argv[++i];
+            continue;
         }
         constexpr std::string_view prefix = "--config=";
         if (arg.starts_with(prefix)) {
-            return std::filesystem::path{std::string{arg.substr(prefix.size())}};
+            options.config_path = std::string{arg.substr(prefix.size())};
+            continue;
+        }
+        if (arg == "--devtools") {
+            options.devtools = true;
+            continue;
         }
     }
-    return {};
+    return options;
 }
 
 auto load_options(const std::filesystem::path& config_path) -> std::expected<chatview::client::NativeClientOptions, std::string>
@@ -103,11 +116,12 @@ auto load_options(const std::filesystem::path& config_path) -> std::expected<cha
     return options;
 }
 
-coco::stray start(saucer::application* app, chatview::client::NativeClientOptions options)
+coco::stray start(saucer::application* app, chatview::client::NativeClientOptions options, bool devtools)
 {
     auto window = saucer::window::create(app).value();
     auto webview = saucer::smartview::create({.window = window});
     auto* view = std::addressof(*webview);
+    webview->set_dev_tools(devtools);
 
     auto dispatcher = [app, view](std::string script) {
         app->post([view, script = std::move(script)] mutable {
@@ -205,12 +219,12 @@ coco::stray start(saucer::application* app, chatview::client::NativeClientOption
 
 int main(int argc, char** argv)
 {
-    auto config_path = parse_config_path(argc, argv);
-    if (!config_path) {
-        std::cerr << config_path.error() << '\n';
+    auto launch_options = parse_launch_options(argc, argv);
+    if (!launch_options) {
+        std::cerr << launch_options.error() << '\n';
         return 1;
     }
-    auto options = load_options(*config_path);
+    auto options = load_options(launch_options->config_path);
     if (!options) {
         std::cerr << options.error() << '\n';
         return 1;
@@ -224,7 +238,7 @@ int main(int argc, char** argv)
     if (!app) {
         return 1;
     }
-    return app->run([options = std::move(*options)](saucer::application* app) mutable -> coco::stray {
-        return start(app, std::move(options));
+    return app->run([options = std::move(*options), devtools = launch_options->devtools](saucer::application* app) mutable -> coco::stray {
+        return start(app, std::move(options), devtools);
     });
 }

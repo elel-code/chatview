@@ -35,6 +35,10 @@ jobs:
     name: Build client (${{ inputs.build_type }}, Clang ${{ inputs.llvm_version }})
     runs-on: windows-latest
     timeout-minutes: 120
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_VERSION: client-windows-${{ inputs.cache_version }}-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}
+      SCCACHE_CACHE_SIZE: "5G"
 
     defaults:
       run:
@@ -60,6 +64,14 @@ jobs:
           python -m pip install --upgrade "cmake>=4.3,<4.4" ninja
           cmake --version
           ninja --version
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Reset sccache stats
+        run: |
+          sccache --version
+          sccache --zero-stats
 
       - name: Cache Deno dependencies
         uses: actions/cache@v4
@@ -114,7 +126,8 @@ jobs:
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           C:\LLVM\bin\clang++.exe --version
           C:\LLVM\bin\clang-scan-deps.exe --version
-          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=C:/LLVM/bin/clang.exe -DCMAKE_CXX_COMPILER=C:/LLVM/bin/clang++.exe -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=C:/LLVM/bin/clang-scan-deps.exe -DCMAKE_LINKER_TYPE=LLD
+          sccache --version
+          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=C:/LLVM/bin/clang.exe -DCMAKE_CXX_COMPILER=C:/LLVM/bin/clang++.exe -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=C:/LLVM/bin/clang-scan-deps.exe -DCMAKE_LINKER_TYPE=LLD
 
       - name: Build client
         shell: cmd
@@ -130,6 +143,10 @@ jobs:
 
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
           cmake --build --preset %PRESET% --parallel
+
+      - name: Show sccache stats
+        if: ${{ always() }}
+        run: sccache --show-stats
 
       - name: Bundle Windows runtime
         if: ${{ inputs.upload_artifact }}
