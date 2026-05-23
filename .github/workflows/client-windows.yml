@@ -51,6 +51,22 @@ jobs:
           cmake --version
           ninja --version
 
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\deno
+          key: ${{ runner.os }}-deno-${{ hashFiles('frontend/deno.lock', 'frontend/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-deno-
+
+      - name: Cache client third-party build
+        uses: actions/cache@v4
+        with:
+          path: client/build/${{ inputs.build_type }}/_deps
+          key: ${{ runner.os }}-client-deps-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}-${{ hashFiles('client/CMakePresets.json', 'client/CMakeLists.txt', 'client/cmake/**/*.cmake', 'client/third_party/**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-client-deps-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}-
+
       - name: Install LLVM/Clang
         env:
           LLVM_VERSION: ${{ inputs.llvm_version }}

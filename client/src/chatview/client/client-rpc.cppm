@@ -154,7 +154,8 @@ public:
         challenge_req.set_pub_key(public_key_hex);
 
         chatview::proto::auth::RequestChallengeResp challenge_resp;
-        auto status = self.call_with_retry<&chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge>(
+        auto status = call_with_retry<&chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge>(
+            self,
             *self.auth_stub_,
             challenge_req,
             challenge_resp);
@@ -178,7 +179,8 @@ public:
         login_req.set_challenge_signature(signature.data(), signature.size());
 
         chatview::proto::auth::LoginResp login_resp;
-        status = self.call_with_retry<&chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin>(
+        status = call_with_retry<&chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin>(
+            self,
             *self.auth_stub_,
             login_req,
             login_resp);
@@ -206,7 +208,8 @@ public:
         challenge_req.set_pub_key(public_key_hex);
 
         chatview::proto::auth::RequestChallengeResp challenge_resp;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge>(
+        auto status = co_await call_with_retry_async<&chatview::proto::auth::AuthService::Stub::PrepareAsyncRequestChallenge>(
+            self,
             *self.auth_stub_,
             challenge_req,
             challenge_resp);
@@ -230,7 +233,8 @@ public:
         login_req.set_challenge_signature(signature.data(), signature.size());
 
         chatview::proto::auth::LoginResp login_resp;
-        status = co_await self.call_with_retry_async<&chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin>(
+        status = co_await call_with_retry_async<&chatview::proto::auth::AuthService::Stub::PrepareAsyncLogin>(
+            self,
             *self.auth_stub_,
             login_req,
             login_resp);
@@ -266,7 +270,8 @@ public:
     {
         chatview::proto::chat::ListFriendsResp response;
         chatview::proto::chat::ListFriendsReq request;
-        auto status = self.call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends>(
+        auto status = call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -280,7 +285,8 @@ public:
     {
         chatview::proto::chat::ListFriendsResp response;
         chatview::proto::chat::ListFriendsReq request;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends>(
+        auto status = co_await call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncListFriends>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -302,7 +308,8 @@ public:
         request.set_client_message_id(client_message_id);
 
         chatview::proto::chat::SendMessageResp response;
-        auto status = self.call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage>(
+        auto status = call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -324,7 +331,8 @@ public:
         request.set_client_message_id(std::move(client_message_id));
 
         chatview::proto::chat::SendMessageResp response;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage>(
+        auto status = co_await call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncSendMessage>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -346,7 +354,8 @@ public:
         request.set_direction(detail::direction_or_default(query));
 
         chatview::proto::chat::GetMessageHistoryResp response;
-        auto status = self.call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory>(
+        auto status = call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -368,7 +377,8 @@ public:
         request.set_direction(detail::direction_or_default(query));
 
         chatview::proto::chat::GetMessageHistoryResp response;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory>(
+        auto status = co_await call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncGetMessageHistory>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -385,7 +395,8 @@ public:
         request.set_last_read_server_seq(last_read_server_seq);
 
         chatview::proto::chat::MarkConversationReadResp response;
-        auto status = self.call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead>(
+        auto status = call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -402,7 +413,8 @@ public:
         request.set_last_read_server_seq(last_read_server_seq);
 
         chatview::proto::chat::MarkConversationReadResp response;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead>(
+        auto status = co_await call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncMarkConversationRead>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -418,7 +430,8 @@ public:
         request.set_target_pub_key(target_pub_key);
 
         chatview::proto::chat::AddFriendResp response;
-        auto status = self.call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend>(
+        auto status = call_with_retry<&chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -434,7 +447,8 @@ public:
         request.set_target_pub_key(std::move(target_pub_key));
 
         chatview::proto::chat::AddFriendResp response;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend>(
+        auto status = co_await call_with_retry_async<&chatview::proto::chat::ChatService::Stub::PrepareAsyncAddFriend>(
+            self,
             *self.chat_stub_,
             request,
             response);
@@ -451,7 +465,8 @@ public:
         request.set_status(user_status == "banned" ? chatview::proto::common::USER_STATUS_BANNED : chatview::proto::common::USER_STATUS_ACTIVE);
 
         chatview::proto::admin::SetUserStatusResp response;
-        auto status = self.call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus>(
+        auto status = call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus>(
+            self,
             *self.admin_stub_,
             request,
             response);
@@ -468,7 +483,8 @@ public:
         request.set_status(user_status == "banned" ? chatview::proto::common::USER_STATUS_BANNED : chatview::proto::common::USER_STATUS_ACTIVE);
 
         chatview::proto::admin::SetUserStatusResp response;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus>(
+        auto status = co_await call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncSetUserStatus>(
+            self,
             *self.admin_stub_,
             request,
             response);
@@ -484,7 +500,8 @@ public:
         request.set_text(text);
 
         chatview::proto::admin::BroadcastResp response;
-        auto status = self.call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast>(
+        auto status = call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast>(
+            self,
             *self.admin_stub_,
             request,
             response);
@@ -500,7 +517,8 @@ public:
         request.set_text(std::move(text));
 
         chatview::proto::admin::BroadcastResp response;
-        auto status = co_await self.call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast>(
+        auto status = co_await call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncBroadcast>(
+            self,
             *self.admin_stub_,
             request,
             response);
@@ -515,7 +533,8 @@ public:
         chatview::proto::admin::PollAdminEventsReq request;
         chatview::proto::admin::PollAdminEventsResp response;
 
-        auto status = self.call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents>(
+        auto status = call_with_retry<&chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents>(
+            self,
             *self.admin_stub_,
             request,
             response);
@@ -545,7 +564,8 @@ public:
         chatview::proto::admin::PollAdminEventsReq request;
         chatview::proto::admin::PollAdminEventsResp response;
 
-        auto status = co_await self.call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents>(
+        auto status = co_await call_with_retry_async<&chatview::proto::admin::AdminService::Stub::PrepareAsyncPollAdminEvents>(
+            self,
             *self.admin_stub_,
             request,
             response);
@@ -785,8 +805,8 @@ private:
     }
 
     template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-    auto unary_once(
-        this RpcClient& self,
+    static auto unary_once(
+        RpcClient& self,
         Stub& stub,
         const Request& request,
         Response& response,
@@ -814,8 +834,8 @@ private:
     }
 
     template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-    auto unary_once_async(
-        this RpcClient& self,
+    static auto unary_once_async(
+        RpcClient& self,
         Stub& stub,
         const Request& request,
         Response& response,
@@ -886,11 +906,11 @@ private:
     }
 
     template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-    auto call_with_retry(this RpcClient& self, Stub& stub, const Request& request, Response& response) -> grpc::Status
+    static auto call_with_retry(RpcClient& self, Stub& stub, const Request& request, Response& response) -> grpc::Status
     {
         grpc::Status status;
         for (auto attempt = 0; attempt < detail::max_rpc_attempts; ++attempt) {
-            status = self.unary_once<PrepareAsync>(stub, request, response, std::chrono::seconds{10});
+            status = unary_once<PrepareAsync>(self, stub, request, response, std::chrono::seconds{10});
             if (status.ok()) {
                 return status;
             }
@@ -902,11 +922,11 @@ private:
     }
 
     template<auto PrepareAsync, typename Stub, typename Request, typename Response>
-    auto call_with_retry_async(this RpcClient& self, Stub& stub, const Request& request, Response& response) -> coco::task<grpc::Status>
+    static auto call_with_retry_async(RpcClient& self, Stub& stub, const Request& request, Response& response) -> coco::task<grpc::Status>
     {
         grpc::Status status;
         for (auto attempt = 0; attempt < detail::max_rpc_attempts; ++attempt) {
-            status = co_await self.unary_once_async<PrepareAsync>(stub, request, response, std::chrono::seconds{10});
+            status = co_await unary_once_async<PrepareAsync>(self, stub, request, response, std::chrono::seconds{10});
             if (status.ok()) {
                 co_return status;
             }
