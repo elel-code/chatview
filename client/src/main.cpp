@@ -119,6 +119,46 @@ auto parse_launch_options(int argc, char** argv) -> std::expected<LaunchOptions,
     return options;
 }
 
+auto embedded_lookup_path(std::filesystem::path request_path) -> std::filesystem::path
+{
+    auto path = request_path.generic_string();
+    if (const auto fragment = path.find('#'); fragment != std::string::npos) {
+        path.erase(fragment);
+    }
+    if (path.empty() || path == "/") {
+        return "/index.html";
+    }
+    if (!path.starts_with("/assets/") && !std::filesystem::path{path}.has_extension()) {
+        return "/index.html";
+    }
+    return path;
+}
+
+auto install_embedded_handler(saucer::smartview& webview) -> void
+{
+    auto embedded = std::make_shared<decltype(saucer::embedded::all())>(saucer::embedded::all());
+    webview.handle_scheme("saucer", [embedded](saucer::scheme::request request, saucer::scheme::executor exec) {
+        const auto url = request.url();
+        if (url.scheme() != "saucer" || url.host() != "embedded") {
+            exec.reject(saucer::scheme::error::invalid);
+            return;
+        }
+
+        const auto file = embedded_lookup_path(url.path());
+        const auto entry = embedded->find(file);
+        if (entry == embedded->end()) {
+            exec.reject(saucer::scheme::error::not_found);
+            return;
+        }
+
+        exec.resolve({
+            .data = entry->second.content,
+            .mime = entry->second.mime,
+            .headers = {{"Access-Control-Allow-Origin", "*"}},
+        });
+    });
+}
+
 auto load_options(const std::filesystem::path& config_path) -> std::expected<chatview::client::NativeClientOptions, std::string>
 {
     auto options = chatview::client::default_options();
@@ -292,7 +332,7 @@ int main(int argc, char** argv)
         window->set_title("ChatView");
         window->set_size({.w = 1200, .h = 800});
 
-        webview->embed(saucer::embedded::all());
+        install_embedded_handler(*webview);
         if (startup == "html") {
             webview->set_html("<!doctype html><title>ChatView smoke</title><body><h1>ChatView WebView OK</h1><p>set_html startup passed.</p></body>");
         } else if (startup == "serve") {
