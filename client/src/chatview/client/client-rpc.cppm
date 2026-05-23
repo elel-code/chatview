@@ -303,6 +303,8 @@ public:
         std::string public_key_hex,
         std::vector<unsigned char> secret_key) -> coco::task<std::expected<LoginResult, std::string>>
     {
+        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{secret_key}};
+
         chatview::proto::auth::RequestChallengeReq challenge_req;
         challenge_req.set_pub_key(public_key_hex);
 

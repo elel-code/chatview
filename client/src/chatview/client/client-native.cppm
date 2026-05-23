@@ -7,6 +7,7 @@ module;
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -102,10 +103,19 @@ public:
 
     auto login(this NativeClient& self, const std::string& pin) -> std::expected<LoginResult, std::string>
     {
-        auto result = self.session_.login(pin);
+        auto credentials = self.session_.load_login_credentials(pin);
+        if (!credentials) {
+            return std::unexpected{credentials.error()};
+        }
+
+        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{credentials->secretKey}};
+        auto result = self.rpc_->login(credentials->publicKey, credentials->secretKey);
         if (!result) {
+            self.session_.record_login_failure();
             return result;
         }
+
+        self.session_.record_login_success();
         self.outbox_.recover();
         self.outbox_.start();
         self.start_event_stream();
@@ -114,10 +124,18 @@ public:
 
     auto loginAsync(this NativeClient& self, const std::string& pin) -> coco::task<std::expected<LoginResult, std::string>>
     {
-        auto result = co_await self.session_.login_async(pin);
+        auto credentials = co_await self.session_.load_login_credentials_async(pin);
+        if (!credentials) {
+            co_return std::unexpected{credentials.error()};
+        }
+
+        auto result = co_await self.rpc_->login_async(credentials->publicKey, std::move(credentials->secretKey));
         if (!result) {
+            self.session_.record_login_failure();
             co_return result;
         }
+
+        self.session_.record_login_success();
         self.outbox_.recover();
         self.outbox_.start();
         self.start_event_stream();
@@ -133,6 +151,7 @@ public:
     {
         self.outbox_.stop();
         self.stop_event_stream();
+        self.rpc_->clear_session();
         return self.session_.lock();
     }
 
@@ -292,7 +311,7 @@ private:
         cache_(std::move(cache)),
         rpc_(std::move(rpc)),
         bridge_(std::move(dispatcher)),
-        session_(std::move(identity), *rpc_),
+        session_(std::move(identity)),
         cache_controller_(cache_, *rpc_, bridge_),
         outbox_(cache_, *rpc_, bridge_)
     {

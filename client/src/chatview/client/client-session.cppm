@@ -5,7 +5,6 @@ module;
 #include <expected>
 #include <mutex>
 #include <optional>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,15 +16,20 @@ export module chatview.client:session;
 import :types;
 import :detail;
 import :identity;
-import :rpc;
 
 namespace chatview::client
 {
 
+export struct LoginCredentials
+{
+    std::string publicKey;
+    std::vector<unsigned char> secretKey;
+};
+
 export class SessionController
 {
 public:
-    SessionController(IdentityStore identity, RpcClient& rpc) : identity_(std::move(identity)), rpc_(rpc) {}
+    explicit SessionController(IdentityStore identity) : identity_(std::move(identity)) {}
 
     auto has_local_identity(this const SessionController& self) -> bool
     {
@@ -42,7 +46,7 @@ public:
         return self.identity_.import_identity(private_key, pin);
     }
 
-    auto login(this SessionController& self, const std::string& pin) -> std::expected<LoginResult, std::string>
+    auto load_login_credentials(this SessionController& self, const std::string& pin) -> std::expected<LoginCredentials, std::string>
     {
         if (auto locked = self.current_lock_state(); locked.lockedUntil) {
             return std::unexpected{"too many attempts"};
@@ -55,23 +59,10 @@ public:
         }
 
         const auto public_key = detail::to_hex(keypair->first);
-        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{keypair->second}};
-        auto result = self.rpc_.login(public_key, keypair->second);
-
-        if (!result) {
-            self.record_bad_pin();
-            return result;
-        }
-
-        {
-            std::scoped_lock lock{self.auth_mutex_};
-            self.remaining_attempts_ = 5;
-            self.locked_until_ = {};
-        }
-        return result;
+        return LoginCredentials{.publicKey = public_key, .secretKey = std::move(keypair->second)};
     }
 
-    auto login_async(this SessionController& self, const std::string& pin) -> coco::task<std::expected<LoginResult, std::string>>
+    auto load_login_credentials_async(this SessionController& self, const std::string& pin) -> coco::task<std::expected<LoginCredentials, std::string>>
     {
         if (auto locked = self.current_lock_state(); locked.lockedUntil) {
             co_return std::unexpected{"too many attempts"};
@@ -84,21 +75,21 @@ public:
         }
 
         const auto public_key = detail::to_hex(keypair->first);
-        auto secret_key = std::move(keypair->second);
-        detail::SecureBufferCleanup secret_cleanup{std::span<unsigned char>{secret_key}};
-        auto result = co_await self.rpc_.login_async(public_key, std::move(secret_key));
+        co_return LoginCredentials{.publicKey = public_key, .secretKey = std::move(keypair->second)};
+    }
 
-        if (!result) {
-            self.record_bad_pin();
-            co_return result;
-        }
-
+    auto record_login_success(this SessionController& self) -> void
+    {
         {
             std::scoped_lock lock{self.auth_mutex_};
             self.remaining_attempts_ = 5;
             self.locked_until_ = {};
         }
-        co_return result;
+    }
+
+    auto record_login_failure(this SessionController& self) -> void
+    {
+        self.record_bad_pin();
     }
 
     auto export_private_key(this SessionController& self, const std::string& pin) -> std::expected<std::string, std::string>
@@ -108,7 +99,6 @@ public:
 
     auto lock(this SessionController& self) -> ExpectedVoid
     {
-        self.rpc_.clear_session();
         return {};
     }
 
@@ -148,7 +138,6 @@ private:
     };
 
     IdentityStore identity_;
-    RpcClient& rpc_;
     std::mutex auth_mutex_;
     int remaining_attempts_ = 5;
     std::optional<Lockout> locked_until_;
