@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   build:
-    name: Build client (${{ inputs.build_type }}, clang-cl)
+    name: Build client (${{ inputs.build_type }}, Clang ${{ inputs.llvm_version }})
     runs-on: windows-latest
     timeout-minutes: 120
 
@@ -63,7 +63,7 @@ jobs:
           Start-Process -FilePath $installer -ArgumentList "/S", "/D=$env:LLVM_ROOT" -Wait
 
           "$env:LLVM_ROOT\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & "$env:LLVM_ROOT\bin\clang-cl.exe" --version
+          & "$env:LLVM_ROOT\bin\clang++.exe" --version
           & "$env:LLVM_ROOT\bin\clang-scan-deps.exe" --version
           & "$env:LLVM_ROOT\bin\lld-link.exe" --version
 
@@ -86,9 +86,9 @@ jobs:
           )
 
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          C:\LLVM\bin\clang-cl.exe --version
+          C:\LLVM\bin\clang++.exe --version
           C:\LLVM\bin\clang-scan-deps.exe --version
-          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=C:\LLVM\bin\clang-cl.exe -DCMAKE_CXX_COMPILER=C:\LLVM\bin\clang-cl.exe -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=C:\LLVM\bin\clang-scan-deps.exe -DCMAKE_LINKER_TYPE=LLD
+          cmake --preset %PRESET% -S client -DCHATVIEW_BUILD_TESTS=%BUILD_TESTS% -DCHATVIEW_FRONTEND_DIST_DIR="%CD%\frontend\dist" -DCMAKE_C_COMPILER=C:/LLVM/bin/clang.exe -DCMAKE_CXX_COMPILER=C:/LLVM/bin/clang++.exe -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=C:/LLVM/bin/clang-scan-deps.exe -DCMAKE_LINKER_TYPE=LLD
 
       - name: Build client
         shell: cmd
@@ -126,7 +126,7 @@ jobs:
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v4
         with:
-          name: chatview-client-windows-${{ inputs.build_type }}-clang-cl-${{ inputs.llvm_version }}
+          name: chatview-client-windows-${{ inputs.build_type }}-clang-${{ inputs.llvm_version }}
           if-no-files-found: error
           path: |
             client/build/${{ inputs.build_type }}/src/chatview/chatview_client.exe
