@@ -83,9 +83,9 @@ This crash happened before cache code used `RpcClient`, while parsing local curs
 
 This strongly suggests a Clang frontend crash in the Windows/MSVC target while importing a C++20/C++23 module that contains Asio coroutine/gRPC template instantiations. It is not a normal C++ diagnostic.
 
-## Current Understanding
+## Failing Pattern
 
-The code pattern involved is:
+The failing implementation pattern was:
 
 - C++ module interface unit: `client-rpc.cppm`
 - Imports `asio_grpc`
@@ -97,7 +97,7 @@ The crash happens in an importing module, not necessarily in the module that dir
 
 This has reproduced on workflow runs that checked out the expected current commit. Build cache staleness is therefore unlikely to be the root cause, although cache keys should still include compiler, OS image, dependency versions, and relevant CMake/source inputs to avoid mixing incompatible build artifacts.
 
-## Workarounds Tried
+## Workarounds Tried And Reverted
 
 1. Replacing explicit-object-parameter member templates with static member templates.
    - Did not help; Clang still crashed mangling `RpcClient::unary_once`.
@@ -114,25 +114,32 @@ This has reproduced on workflow runs that checked out the expected current commi
    - The crash then moved into Asio `use_awaitable` mangling when an unrelated module imported `:rpc`.
 
 5. Removing unnecessary `import :rpc` from `client-bridge.cppm`.
-   - `NativeBridge` no longer depends directly on `RpcClient`.
-   - Force-offline session clearing is passed as `std::move_only_function<void()>`.
-   - This reduces the number of modules importing the heavy RPC module and avoids the observed `client-bridge.cppm` crash path.
+   - Reduced the importer surface, but did not address the root issue that the heavy RPC module BMI was still imported elsewhere.
+   - This workaround was reverted before the current fix.
 
 6. Limiting Ninja compile concurrency for `chatview_client_core` on Windows/Clang.
    - Considered because multiple importing modules crashed near the same build phase.
    - This is a mitigation only; the crash still appears to be a compiler frontend bug.
 
 7. Removing unnecessary `import :rpc` from `client-session.cppm`.
-   - `SessionController` now owns only local identity, PIN, and lockout state.
-   - It returns `LoginCredentials` to `NativeClient`; `NativeClient` performs the direct `RpcClient::login` / `RpcClient::login_async` calls.
-   - This keeps the RPC hot path statically dispatched and avoids `std::function` or `std::move_only_function` on login.
-   - `RpcClient::login_async` now cleans its by-value secret-key buffer internally, because the previous caller-side cleanup happened after moving the vector.
+   - Reduced the importer surface, but forced ownership changes between session and native client.
+   - This workaround was reverted before the current fix.
 
 8. Removing direct `import :rpc` from `client-cache.cppm` and `client-outbox.cppm`.
-   - `CacheController` and `OutboxManager` are now templates over the RPC type.
-   - `NativeClient` instantiates them as `CacheController<RpcClient>` and `OutboxManager<RpcClient>`.
-   - This keeps calls statically bound and does not add virtual dispatch, `std::function`, or other runtime type erasure on RPC paths.
-   - The tradeoff is that the dependent RPC calls instantiate in `client-native.cppm`, which still imports `:rpc`.
+   - Reduced the importer surface, but moved template instantiations into `client-native.cppm`.
+   - This workaround was reverted before the current fix.
+
+## Current Mitigation In Tree
+
+The current change keeps the public `chatview.client:rpc` partition, but makes it a thin module wrapper over a normal C++ translation unit:
+
+- `client-rpc.cppm` includes `client-rpc.hpp` and exports `RpcClient` as a facade for existing module importers.
+- `client-rpc.cpp` contains the RPC implementation and all `agrpc::ClientRPC<&Stub::PrepareAsync...>` / `asio::use_awaitable` coroutine bodies.
+- `client-rpc.hpp` declares the full `RpcClient` type, so there is no PIMPL and no runtime indirection added to method calls.
+- The retry/unary helpers remain compile-time templates over `PrepareAsync`; no `std::function`, `std::move_only_function`, virtual dispatch, or runtime type erasure is added to the unary RPC hot path.
+- `client-types.hpp` holds the shared client data types, and `client-types.cppm` re-exports those same declarations so ordinary `.cpp` code and module code use one type identity.
+
+This is intended to keep the heavy coroutine/template definitions out of the RPC module BMI while preserving the previous runtime shape. The module wrapper may still expose declarations that mention gRPC/Asio types; if Windows Clang still crashes, the next reduction is to check whether declarations alone are sufficient to trigger the frontend crash or whether a narrower exported facade is required.
 
 ## Notes For LLVM Issue
 

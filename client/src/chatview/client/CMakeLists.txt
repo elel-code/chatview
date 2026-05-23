@@ -15,6 +15,10 @@ target_sources(chatview_client_core
     client-outbox.cppm
     client-native.cppm
 )
+target_sources(chatview_client_core
+    PRIVATE
+    client-rpc.cpp
+)
 target_link_libraries(chatview_client_core
     PUBLIC
     asio_grpc_module
