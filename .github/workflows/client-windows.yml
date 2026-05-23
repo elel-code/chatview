@@ -148,31 +148,6 @@ jobs:
         if: ${{ always() }}
         run: sccache --show-stats
 
-      - name: Bundle Windows runtime
-        if: ${{ inputs.upload_artifact }}
-        shell: cmd
-        env:
-          PRESET: ${{ inputs.build_type }}
-        run: |
-          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
-          if not defined VS_PATH (
-            echo Visual Studio with VC x64 tools was not found.
-            exit /b 1
-          )
-
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          dumpbin /headers "client\build\%PRESET%\src\chatview\chatview_client.exe" | findstr /C:"subsystem"
-          dumpbin /dependents "client\build\%PRESET%\src\chatview\chatview_client.exe"
-
-          if not defined VCToolsRedistDir (
-            echo VCToolsRedistDir was not set by vcvars64.bat.
-            exit /b 1
-          )
-          for /d %%d in ("%VCToolsRedistDir%x64\Microsoft.VC*.CRT") do (
-            echo Copying Visual C++ runtime from %%d
-            copy /Y "%%d\*.dll" "client\build\%PRESET%\src\chatview\"
-          )
-
       - name: Test client
         if: ${{ inputs.run_tests }}
         shell: cmd
@@ -202,3 +177,8 @@ jobs:
             client/build/${{ inputs.build_type }}/src/chatview/*.pdb
             client/build/${{ inputs.build_type }}/*.dll
             client/build/${{ inputs.build_type }}/*.pdb
+            !client/build/${{ inputs.build_type }}/**/api-ms-win-*.dll
+            !client/build/${{ inputs.build_type }}/**/concrt*.dll
+            !client/build/${{ inputs.build_type }}/**/msvcp*.dll
+            !client/build/${{ inputs.build_type }}/**/ucrtbase*.dll
+            !client/build/${{ inputs.build_type }}/**/vcruntime*.dll
