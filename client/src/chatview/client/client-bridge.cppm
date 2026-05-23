@@ -12,6 +12,7 @@ export module chatview.client:bridge;
 
 import :types;
 import :detail;
+import :rpc;
 import chatview.proto.events;
 
 namespace chatview::client
@@ -37,10 +38,7 @@ public:
             "window.dispatchEvent(new CustomEvent(" + detail::js_string(event_name) + ",{detail:" + detail_json + "}))");
     }
 
-    auto dispatch_server_event(
-        this NativeBridge& self,
-        const chatview::proto::events::ServerEvent& event,
-        std::move_only_function<void()> clear_session) -> void
+    auto dispatch_server_event(this NativeBridge& self, RpcClient& rpc, const chatview::proto::events::ServerEvent& event) -> void
     {
         switch (event.event_case()) {
         case chatview::proto::events::ServerEvent::kNewMessage:
@@ -58,7 +56,7 @@ public:
             self.dispatch_custom_event("saucer:system-broadcast", detail::js_string(event.system_broadcast().text()));
             break;
         case chatview::proto::events::ServerEvent::kForceOffline:
-            clear_session();
+            rpc.clear_session();
             self.dispatch_custom_event("saucer:force-offline", detail::js_string(event.force_offline().reason()));
             break;
         case chatview::proto::events::ServerEvent::kAdminUpdate:

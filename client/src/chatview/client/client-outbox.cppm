@@ -18,6 +18,7 @@ export module chatview.client:outbox;
 
 import :types;
 import :detail;
+import :rpc;
 import :bridge;
 import chatview.proto.chat;
 import chatview.storage.cache;
@@ -25,11 +26,10 @@ import chatview.storage.cache;
 namespace chatview::client
 {
 
-export template<typename Rpc>
-class OutboxManager
+export class OutboxManager
 {
 public:
-    OutboxManager(storage::CacheDatabase& cache, Rpc& rpc, NativeBridge& bridge) :
+    OutboxManager(storage::CacheDatabase& cache, RpcClient& rpc, NativeBridge& bridge) :
         cache_(cache),
         rpc_(rpc),
         bridge_(bridge)
@@ -366,7 +366,7 @@ private:
     }
 
     storage::CacheDatabase& cache_;
-    Rpc& rpc_;
+    RpcClient& rpc_;
     NativeBridge& bridge_;
     std::jthread outbox_thread_;
     std::mutex wake_mutex_;
