@@ -301,7 +301,9 @@ private:
     auto start_event_stream(this NativeClient& self) -> void
     {
         self.rpc_->start_event_stream([&self](const auto& event) {
-            self.bridge_.dispatch_server_event(*self.rpc_, event);
+            self.bridge_.dispatch_server_event(event, [&self] {
+                self.rpc_->clear_session();
+            });
         });
     }
 
