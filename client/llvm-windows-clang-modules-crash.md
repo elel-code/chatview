@@ -20,7 +20,7 @@ The build uses `clang++.exe`, `clang-scan-deps.exe`, and `lld-link.exe` from `C:
 
 ## Symptom
 
-`client-rpc.cppm` compiles, then Clang crashes while compiling an importing module such as `client-bridge.cppm` or `client-session.cppm`.
+`client-rpc.cppm` compiles, then Clang crashes while compiling an importing module such as `client-bridge.cppm`, `client-session.cppm`, or `client-cache.cppm`.
 
 Representative failure:
 
@@ -68,6 +68,19 @@ Mangling declaration
 Exception Code: 0xC0000005
 ```
 
+After removing the direct RPC dependency from `client-session.cppm`, a later run moved the crash to `client-cache.cppm`:
+
+```text
+client-cache.cppm:33:1: current parser token '{'
+instantiating class definition
+'std::expected<std::optional<long long>, std::basic_string<char>>'
+LLVM IR generation of declaration 'std::is_const_v'
+Mangling declaration 'std::is_const_v'
+Exception Code: 0xC0000005
+```
+
+This crash happened before cache code used `RpcClient`, while parsing local cursor helpers. That is another sign that importing the heavy RPC module can destabilize unrelated importer code.
+
 This strongly suggests a Clang frontend crash in the Windows/MSVC target while importing a C++20/C++23 module that contains Asio coroutine/gRPC template instantiations. It is not a normal C++ diagnostic.
 
 ## Current Understanding
@@ -114,6 +127,12 @@ This has reproduced on workflow runs that checked out the expected current commi
    - It returns `LoginCredentials` to `NativeClient`; `NativeClient` performs the direct `RpcClient::login` / `RpcClient::login_async` calls.
    - This keeps the RPC hot path statically dispatched and avoids `std::function` or `std::move_only_function` on login.
    - `RpcClient::login_async` now cleans its by-value secret-key buffer internally, because the previous caller-side cleanup happened after moving the vector.
+
+8. Removing direct `import :rpc` from `client-cache.cppm` and `client-outbox.cppm`.
+   - `CacheController` and `OutboxManager` are now templates over the RPC type.
+   - `NativeClient` instantiates them as `CacheController<RpcClient>` and `OutboxManager<RpcClient>`.
+   - This keeps calls statically bound and does not add virtual dispatch, `std::function`, or other runtime type erasure on RPC paths.
+   - The tradeoff is that the dependent RPC calls instantiate in `client-native.cppm`, which still imports `:rpc`.
 
 ## Notes For LLVM Issue
 

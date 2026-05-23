@@ -335,8 +335,8 @@ private:
     std::unique_ptr<RpcClient> rpc_;
     NativeBridge bridge_;
     SessionController session_;
-    CacheController cache_controller_;
-    OutboxManager outbox_;
+    CacheController<RpcClient> cache_controller_;
+    OutboxManager<RpcClient> outbox_;
 };
 
 export auto default_options() -> NativeClientOptions

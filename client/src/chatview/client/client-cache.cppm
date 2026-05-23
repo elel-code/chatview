@@ -19,7 +19,6 @@ export module chatview.client:cache;
 
 import :types;
 import :detail;
-import :rpc;
 import :bridge;
 import chatview.proto.common;
 import chatview.storage.cache;
@@ -132,10 +131,11 @@ auto is_contiguous_newer(const std::vector<storage::MessageRow>& rows, std::int6
 }
 }
 
-export class CacheController
+export template<typename Rpc>
+class CacheController
 {
 public:
-    CacheController(storage::CacheDatabase& cache, RpcClient& rpc, NativeBridge& bridge) :
+    CacheController(storage::CacheDatabase& cache, Rpc& rpc, NativeBridge& bridge) :
         cache_(cache),
         rpc_(rpc),
         bridge_(bridge)
@@ -527,7 +527,7 @@ private:
     }
 
     storage::CacheDatabase& cache_;
-    RpcClient& rpc_;
+    Rpc& rpc_;
     NativeBridge& bridge_;
 };
 
