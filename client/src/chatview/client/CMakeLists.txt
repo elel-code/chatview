@@ -27,3 +27,8 @@ target_link_libraries(chatview_client_core
     sqlite_orm
     grpc++
 )
+
+if(WIN32 AND CMAKE_GENERATOR MATCHES "Ninja" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set_property(GLOBAL APPEND PROPERTY JOB_POOLS chatview_client_modules=1)
+    set_property(TARGET chatview_client_core PROPERTY JOB_POOL_COMPILE chatview_client_modules)
+endif()

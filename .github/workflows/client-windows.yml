@@ -22,6 +22,10 @@ on:
         description: Upload the built Windows executable.
         type: boolean
         default: true
+      cache_version:
+        description: Cache namespace. Bump this to ignore older dependency caches.
+        type: string
+        default: v2
 
 permissions:
   contents: read
@@ -39,6 +43,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Show checkout revision
+        run: |
+          git rev-parse HEAD
+          git log -1 --oneline
+          Select-String -Path client/src/chatview/client/client-rpc.cppm -Pattern "RpcClient::unary_once", "auto unary_once", "return true;"
 
       - name: Set up Deno
         uses: denoland/setup-deno@v2
@@ -63,9 +73,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: client/build/${{ inputs.build_type }}/_deps
-          key: ${{ runner.os }}-client-deps-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}-${{ hashFiles('client/CMakePresets.json', 'client/CMakeLists.txt', 'client/cmake/**/*.cmake', 'client/third_party/**/CMakeLists.txt') }}
+          key: ${{ runner.os }}-client-deps-${{ inputs.cache_version }}-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}-${{ hashFiles('client/CMakePresets.json', 'client/CMakeLists.txt', 'client/cmake/**/*.cmake', 'client/src/chatview/client/CMakeLists.txt', 'client/third_party/**/CMakeLists.txt') }}
           restore-keys: |
-            ${{ runner.os }}-client-deps-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}-
+            ${{ runner.os }}-client-deps-${{ inputs.cache_version }}-${{ inputs.build_type }}-llvm-${{ inputs.llvm_version }}-
 
       - name: Install LLVM/Clang
         env:
