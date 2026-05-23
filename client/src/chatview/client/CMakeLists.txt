@@ -19,6 +19,7 @@ target_sources(chatview_client_core
     PRIVATE
     client-rpc.cpp
 )
+add_dependencies(chatview_client_core chatview_proto_generated)
 target_link_libraries(chatview_client_core
     PUBLIC
     asio_grpc_module

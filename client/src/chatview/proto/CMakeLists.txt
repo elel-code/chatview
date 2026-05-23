@@ -96,3 +96,15 @@ target_sources(chatview_proto_events
 )
 target_link_libraries(chatview_proto_events PUBLIC grpc++ protobuf::libprotobuf)
 target_include_directories(chatview_proto_events PUBLIC ${ASIO_GRPC_PROTO_OUT_DIR})
+
+
+# Generated protobuf headers are included by non-module translation units as
+# normal headers, so they must exist before C++ dependency scanning starts.
+add_custom_target(chatview_proto_generated
+    DEPENDS
+    ${chatview_proto_common_srcs}
+    ${chatview_proto_admin_srcs}
+    ${chatview_proto_auth_srcs}
+    ${chatview_proto_chat_srcs}
+    ${chatview_proto_events_srcs}
+)
