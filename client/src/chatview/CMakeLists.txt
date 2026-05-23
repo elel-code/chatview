@@ -5,6 +5,12 @@ add_subdirectory(client)
 
 # ── Main executable ────────────────────────────────────────────────────────────
 add_executable(chatview_client ${CMAKE_SOURCE_DIR}/src/main.cpp)
+if(WIN32)
+    set_target_properties(chatview_client PROPERTIES WIN32_EXECUTABLE TRUE)
+    if(MSVC OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC")
+        target_link_options(chatview_client PRIVATE "LINKER:/ENTRY:mainCRTStartup")
+    endif()
+endif()
 
 set(CHATVIEW_FRONTEND_DIST_DIR "${CMAKE_SOURCE_DIR}/../frontend/dist" CACHE PATH "Frontend production dist directory to embed")
 if(NOT EXISTS "${CHATVIEW_FRONTEND_DIST_DIR}/index.html")
