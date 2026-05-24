@@ -284,7 +284,7 @@ int main(int argc, char** argv)
         window->set_size({.w = 1200, .h = 800});
 
         install_embedded_handler(*webview);
-        webview->set_url("saucer://embedded/index.html");
+        webview->set_url("saucer://embedded/index.html#/auth");
 
         window->show();
         co_await app->finish();
