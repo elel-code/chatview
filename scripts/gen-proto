@@ -1,0 +1,77 @@
+#!/usr/bin/env sh
+set -eu
+
+script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
+repo_root=$(CDPATH= cd "$script_dir/.." && pwd)
+
+proto_root="$repo_root/proto"
+
+resolve_protoc() {
+	if [ -n "${PROTOC:-}" ]; then
+		printf '%s\n' "$PROTOC"
+		return
+	fi
+
+	set -- "$repo_root"/tools/protoc-*/bin/protoc
+	found_count=0
+	for candidate in "$@"; do
+		if [ -x "$candidate" ]; then
+			found_count=$((found_count + 1))
+			found_protoc="$candidate"
+		fi
+	done
+	if [ "$found_count" -eq 1 ]; then
+		printf '%s\n' "$found_protoc"
+		return
+	fi
+	if [ "$found_count" -gt 1 ]; then
+		echo "multiple protoc binaries found under tools/protoc-*/bin/protoc; set PROTOC=/path/to/protoc" >&2
+		exit 1
+	fi
+
+	if command -v protoc >/dev/null 2>&1; then
+		command -v protoc
+		return
+	fi
+
+	echo "protoc not found; set PROTOC=/path/to/protoc or install one under tools/protoc-*/bin/protoc" >&2
+	exit 1
+}
+
+protoc_bin=$(resolve_protoc)
+
+generate() {
+	out_dir="$repo_root/api"
+
+	(
+		cd "$proto_root"
+		"$protoc_bin" \
+			-I . \
+			--go_out="$out_dir" \
+			--go_opt=module=chatview/api \
+			--go-grpc_out="$out_dir" \
+			--go-grpc_opt=module=chatview/api \
+			chatview/common/types.proto \
+			chatview/auth.proto \
+			chatview/chat.proto \
+			chatview/events.proto \
+			chatview/admin.proto
+	)
+}
+
+if [ "$#" -eq 0 ]; then
+	generate
+	exit 0
+fi
+
+for target in "$@"; do
+	case "$target" in
+	api|all|client|server)
+		generate
+		;;
+	*)
+		echo "usage: $0 [api|all|client|server]..." >&2
+		exit 2
+		;;
+	esac
+done

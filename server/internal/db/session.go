@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"chatview/internal/contextx"
+	"chatview/server/internal/contextx"
 )
 
 func (s *Store) AuthenticateToken(ctx context.Context, header string) (contextx.Principal, error) {

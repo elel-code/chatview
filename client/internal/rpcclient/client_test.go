@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	adminpb "chatview/gen/chatview/admin"
-	authpb "chatview/gen/chatview/auth"
-	chatpb "chatview/gen/chatview/chat"
-	commonpb "chatview/gen/chatview/common"
-	eventspb "chatview/gen/chatview/events"
+	adminpb "chatview/api/gen/chatview/admin"
+	authpb "chatview/api/gen/chatview/auth"
+	chatpb "chatview/api/gen/chatview/chat"
+	commonpb "chatview/api/gen/chatview/common"
+	eventspb "chatview/api/gen/chatview/events"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

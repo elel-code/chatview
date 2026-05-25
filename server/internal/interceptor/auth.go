@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"chatview/internal/contextx"
-	"chatview/internal/db"
+	"chatview/server/internal/contextx"
+	"chatview/server/internal/db"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

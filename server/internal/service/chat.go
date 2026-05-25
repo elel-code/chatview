@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	chatpb "chatview/gen/chatview/chat"
-	commonpb "chatview/gen/chatview/common"
-	eventspb "chatview/gen/chatview/events"
-	"chatview/internal/contextx"
-	"chatview/internal/db"
-	"chatview/internal/eventhub"
+	chatpb "chatview/api/gen/chatview/chat"
+	commonpb "chatview/api/gen/chatview/common"
+	eventspb "chatview/api/gen/chatview/events"
+	"chatview/server/internal/contextx"
+	"chatview/server/internal/db"
+	"chatview/server/internal/eventhub"
 
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/grpc/codes"

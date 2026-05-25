@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"testing"
 
-	"chatview/internal/identity"
-	"chatview/internal/rpcclient"
-	"chatview/internal/storage"
+	"chatview/client/internal/identity"
+	"chatview/client/internal/rpcclient"
+	"chatview/client/internal/storage"
 )
 
 func TestServiceLocksAfterBadPINAttempts(t *testing.T) {

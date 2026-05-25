@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"chatview/internal/identity"
-	"chatview/internal/rpcclient"
-	"chatview/internal/storage"
+	"chatview/client/internal/identity"
+	"chatview/client/internal/rpcclient"
+	"chatview/client/internal/storage"
 )
 
 type Service struct {

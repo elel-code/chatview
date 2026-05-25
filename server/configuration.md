@@ -67,3 +67,12 @@ skip_migrations: false
 8. 注册认证、聊天、事件流、管理、健康检查和反射服务。
 
 关闭时先尝试 `GracefulStop()`，10 秒后回退为 `Stop()`。
+
+## Proto 生成
+
+```sh
+cd ..
+./scripts/gen-proto
+```
+
+Proto 定义统一放在仓库根目录 `proto/`，Go 生成代码统一输出到 `api/gen`，服务端通过 `chatview/api` module 引用。生成脚本优先使用 `PROTOC=/path/to/protoc`，否则自动发现唯一的 `tools/protoc-*/bin/protoc`，最后回退到 PATH 中的 `protoc`。如果本地保留多个 `tools/protoc-*` 版本，需要显式设置 `PROTOC`。

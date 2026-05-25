@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"chatview/gen/chatview/events"
-	"chatview/internal/db"
+	"chatview/api/gen/chatview/events"
+	"chatview/server/internal/db"
 )
 
 type Hub struct {

@@ -5,24 +5,24 @@
 ## 运行方式
 
 ```sh
-go run ./cmd/chatview-fyne
-go run ./cmd/chatview-fyne --config client.example.yaml
+go run ./cmd/client
+go run ./cmd/client --config client.example.yaml
 ```
 
 Linux Wayland 会话下建议使用原生 Wayland tag：
 
 ```sh
-go run -tags wayland ./cmd/chatview-fyne --config client.example.yaml
-./scripts/run-fyne --config client.example.yaml
+go run -tags wayland ./cmd/client --config client.example.yaml
 ```
 
 ## Proto 生成
 
 ```sh
+cd ..
 ./scripts/gen-proto
 ```
 
-默认使用 `../server/protoc-34.1-linux-x86_64/bin/protoc`。如果本机需要指定其它 protoc，可设置 `PROTOC=/path/to/protoc`。
+Proto 定义统一放在仓库根目录 `proto/`，Go 生成代码统一输出到 `api/gen`，客户端通过 `chatview/api` module 引用。生成脚本优先使用 `PROTOC=/path/to/protoc`，否则自动发现唯一的 `tools/protoc-*/bin/protoc`，最后回退到 PATH 中的 `protoc`。如果本地保留多个 `tools/protoc-*` 版本，需要显式设置 `PROTOC`。
 
 ## 命令行参数
 
@@ -66,7 +66,7 @@ Go/Fyne 客户端不会读取旧 `identity.bin` 和 `cache.db`。已有 Ed25519 
 
 ## 迁移状态
 
-- Go/Fyne 入口：`cmd/chatview-fyne`
+- Go/Fyne 入口：`cmd/client`
 - 配置加载：`internal/config`
 - 身份/PIN/导入导出：`internal/identity`
 - gRPC 客户端：`internal/rpcclient`

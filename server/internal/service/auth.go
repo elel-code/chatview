@@ -5,11 +5,11 @@ import (
 	"crypto/ed25519"
 	"time"
 
-	authpb "chatview/gen/chatview/auth"
-	eventspb "chatview/gen/chatview/events"
-	"chatview/internal/auth"
-	"chatview/internal/db"
-	"chatview/internal/eventhub"
+	authpb "chatview/api/gen/chatview/auth"
+	eventspb "chatview/api/gen/chatview/events"
+	"chatview/server/internal/auth"
+	"chatview/server/internal/db"
+	"chatview/server/internal/eventhub"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

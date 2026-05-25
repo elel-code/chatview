@@ -1,14 +1,17 @@
-module chatview
+module chatview/client
 
 go 1.26
 
 require (
+	chatview/api v0.0.0
 	fyne.io/fyne/v2 v2.7.4
 	github.com/jmoiron/sqlx v1.4.0
 	google.golang.org/grpc v1.81.0
-	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.50.1
 )
+
+replace chatview/api => ../api
 
 require (
 	fyne.io/systray v1.12.1 // indirect
@@ -50,7 +53,7 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"chatview/internal/contextx"
+	"chatview/server/internal/contextx"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"

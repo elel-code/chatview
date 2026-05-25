@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 
-	eventspb "chatview/gen/chatview/events"
-	"chatview/internal/contextx"
-	"chatview/internal/db"
-	"chatview/internal/eventhub"
+	eventspb "chatview/api/gen/chatview/events"
+	"chatview/server/internal/contextx"
+	"chatview/server/internal/db"
+	"chatview/server/internal/eventhub"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

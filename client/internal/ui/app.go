@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"chatview/internal/core"
+	"chatview/client/internal/core"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
