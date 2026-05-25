@@ -1,10 +1,1 @@
 build
-.idea/
-.deepseek
-API_REFERENCE.md
-asio_grpc_protobuf_generate.md
-
-cpp-backend-design.md
-TODO.md
-.agents
-.codex

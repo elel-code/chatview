@@ -41,7 +41,7 @@ message SendMessageReq {
 message SendMessageResp {
   string message_id  = 1;  // 服务端分配的消息 ID
   string timestamp   = 2;  // 服务端时间戳 (ISO 8601)
-  int64  server_seq  = 3;  // 会话内单调递增序号；C++ 用于写 SQLite，不暴露给 JS DTO
+  int64  server_seq  = 3;  // 会话内单调递增序号；客户端用于本地缓存和补洞检测
   bool   deduplicated = 4; // true 表示本次请求命中 client_message_id 幂等记录，未重复写入消息
 }
 

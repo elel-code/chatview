@@ -1,0 +1,5 @@
+data_dir: "/tmp/chatview-client"
+grpc_target: "127.0.0.1:50051"
+grpc_tls: false
+grpc_ca_path: ""
+grpc_ssl_target_name_override: ""

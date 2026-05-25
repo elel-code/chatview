@@ -11,12 +11,12 @@ option cc_enable_arenas = true;
 // 使用 gRPC server-streaming RPC:
 //   客户端发起 Subscribe，服务端持续推送事件流。
 //
-// 对应前端 window 事件:
-//   saucer:messages-pending  → NewMessageEvent
-//   saucer:friend-status     → FriendStatusEvent
-//   saucer:system-broadcast  → SystemBroadcastEvent
-//   saucer:force-offline     → ForceOfflineEvent
-//   saucer:admin-update      → AdminUpdateEvent
+// 对应桌面客户端事件:
+//   messages-pending  → NewMessageEvent
+//   friend-status     → FriendStatusEvent
+//   system-broadcast  → SystemBroadcastEvent
+//   force-offline     → ForceOfflineEvent
+//   admin-update      → AdminUpdateEvent
 //
 // gRPC metadata 需携带 authorization: Bearer <session_token>
 // ─────────────────────────────────────────────
@@ -30,19 +30,18 @@ message SubscribeReq {
 
 // ── 事件定义 ─────────────────────────────────
 
-// 新消息通知 — 对应 saucer:messages-pending
+// 新消息通知 — 对应 messages-pending
 //
-// gRPC 流携带完整事件，但 C++ Saucer 桥接层向 JS 转发时仅 dispatch
-// from_pub_key 字符串（前端 app-root.ts:103 将 detail 当作 string pubKey）。
-// count 字段供 C++ 内部使用（如积压消息数量判断），当前不暴露给前端。
+// gRPC 流携带完整事件；桌面客户端可以用 from_pub_key 定位需要刷新的会话。
+// count 字段供客户端优化积压消息拉取策略，不要求 UI 直接展示。
 //
 // 前端收到后调用 ChatService.GetMessageHistory（direction=newer）拉取实际消息内容。
 message NewMessageEvent {
   string  from_pub_key = 1;  // 发来新消息的好友公钥
-  int32   count        = 2;  // 待拉取消息数（C++ 内部优化用，不传 JS）
+  int32   count        = 2;  // 待拉取消息数（客户端优化用）
 }
 
-// 好友状态变更 — 对应 saucer:friend-status
+// 好友状态变更 — 对应 friend-status
 // 对应前端 FriendStatusEvent 接口
 message FriendStatusEvent {
   string pub_key   = 1;                   // 好友公钥
@@ -50,19 +49,19 @@ message FriendStatusEvent {
   bool   is_online = 3;                   // 当前在线状态
 }
 
-// 系统广播 — 对应 saucer:system-broadcast
+// 系统广播 — 对应 system-broadcast
 message SystemBroadcastEvent {
   string text       = 1;  // 广播文本
   string from_admin = 2;  // 发送广播的管理员公钥
 }
 
-// 强制下线 — 对应 saucer:force-offline
+// 强制下线 — 对应 force-offline
 // 当用户被封禁或服务端主动踢出时推送
 message ForceOfflineEvent {
   string reason = 1;  // 下线原因（如 "account_banned"）
 }
 
-// 管理员视图失效通知 — 对应 saucer:admin-update
+// 管理员视图失效通知 — 对应 admin-update
 //
 // 事件不携带完整快照；前端收到后调用 AdminService.PollAdminEvents 拉取权威数据。
 message AdminUpdateEvent {}

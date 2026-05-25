@@ -49,14 +49,14 @@ message FriendInfo {
 
 // 聊天消息 — 对应前端 ChatMessage 接口
 //
-// ⚠ C++ Saucer 暴露层必须做 DTO 映射，不能直接把 protobuf 对象原样丢给 JS:
+// 客户端 UI 层应做 DTO 映射，避免直接把 protobuf 对象原样暴露给界面:
 //   - proto sender_pub_key (field 2)      → JS { sender }
 //   - proto delivery    (enum, field 5)   → JS { delivery: "incoming"|"pending"|"sent"|"failed" }
 //   - proto timestamp   (string, field 4) → JS { timestamp }  直接透传
 //   - proto id          (string, field 1) → JS { id }         直接透传
 //   - proto text        (string, field 3) → JS { text }       直接透传
 //   - proto error       (string, field 6) → JS { error? }     直接透传
-//   - proto server_seq  (int64, field 10) 留在 C++/SQLite 层；不暴露给 JS DTO
+//   - proto server_seq  (int64, field 10) 留在客户端缓存层；通常不作为聊天气泡字段展示
 message ChatMessage {
   string          id              = 1;  // 服务端消息 ID
   string          sender_pub_key  = 2;  // 发送者公钥

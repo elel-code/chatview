@@ -1,29 +1,47 @@
 # ChatView 客户端配置
 
-C++ 桌面客户端使用内置默认值，外加一个可选的 YAML 文件（通过 `--config` 传入）。
-客户端**不会**读取 `CHATVIEW_*` 环境变量。
+当前客户端实现为 Go/Fyne。旧 C++/Saucer 客户端和 Web frontend 已移除，运行、配置和本地数据路径均以 Go/Fyne 客户端为准。
+
+## 运行方式
+
+```sh
+go run ./cmd/chatview-fyne
+go run ./cmd/chatview-fyne --config client.example.yaml
+```
+
+Linux Wayland 会话下建议使用原生 Wayland tag：
+
+```sh
+go run -tags wayland ./cmd/chatview-fyne --config client.example.yaml
+./scripts/run-fyne --config client.example.yaml
+```
+
+## Proto 生成
+
+```sh
+./scripts/gen-proto
+```
+
+默认使用 `../server/protoc-34.1-linux-x86_64/bin/protoc`。如果本机需要指定其它 protoc，可设置 `PROTOC=/path/to/protoc`。
 
 ## 命令行参数
 
 | 参数 | 默认值 | 说明 |
 |---|---|---|
-| `--config` | 空 | 可选的 YAML 配置文件路径。如果为空，则仅使用内置默认值。支持 `--config path/to/client.yaml` 和 `--config=path/to/client.yaml` 两种写法。 |
-
-示例：
-
-```sh
-./build/release/src/chatview/chatview_client --config client.yaml
-```
+| `--config` | 空 | 可选 YAML 配置路径。为空时仅使用内置默认值。 |
+| `--data-dir` | 配置或内置默认值 | 覆盖客户端数据目录。 |
+| `--target` | 配置或 `127.0.0.1:50051` | 覆盖 gRPC server 地址。 |
+| `--tls` | 根据 target 自动判断 | 覆盖是否启用 gRPC TLS，支持 `true`/`false`。 |
 
 ## YAML 配置项
 
 | 键 | 默认值 | 说明 |
 |---|---|---|
-| `data_dir` | Linux: `~/.chatview`；Windows: `%APPDATA%/chatview`；macOS: `~/Library/Application Support/chatview` | 存放 `identity.bin` 和 `cache.db` 的目录。如果无法获取平台家目录，则回退到 `./.chatview`。 |
-| `grpc_target` | `127.0.0.1:50051` | Go gRPC 服务器目标地址，传给 `grpc::CreateChannel`。 |
-| `grpc_tls` | 环回地址默认 `false`；其它地址默认 `true` | 是否启用 gRPC TLS。 |
-| `grpc_ca_path` | 空 | 可选的自定义 CA PEM 证书路径。空值则使用 gRPC 平台的默认根证书。 |
-| `grpc_ssl_target_name_override` | 空 | 可选的 TLS 主机名覆盖，用于开发或测试证书。 |
+| `data_dir` | Linux: `~/.chatview`; Windows: `%APPDATA%/chatview`; macOS: `~/Library/Application Support/chatview` | 存放 Go/Fyne 客户端本地身份和缓存。无法获取平台家目录时回退到 `./.chatview`。 |
+| `grpc_target` | `127.0.0.1:50051` | Go gRPC server 地址。 |
+| `grpc_tls` | 环回地址默认 `false`; 其它地址默认 `true` | 是否启用 gRPC TLS。 |
+| `grpc_ca_path` | 空 | 可选自定义 CA PEM 证书路径。空值使用 gRPC 平台默认根证书。 |
+| `grpc_ssl_target_name_override` | 空 | 可选 TLS 主机名覆盖，用于开发或测试证书。 |
 
 示例：
 
@@ -35,27 +53,25 @@ grpc_ca_path: ""
 grpc_ssl_target_name_override: ""
 ```
 
-## CMake 选项
+## 本地数据
 
-| 选项 | 默认值 | 说明 |
-|---|---|---|
-| `CHATVIEW_BUILD_TESTS` | `ON` | 构建 `chatview_client_local_tests` 测试目标。 |
-| `CHATVIEW_FRONTEND_DIST_DIR` | `${CMAKE_SOURCE_DIR}/../frontend/dist` | 生产前端 dist 目录，通过 `saucer_embed()` 嵌入到二进制文件中。该目录必须包含 `index.html`。 |
-
-示例：
-
-```sh
-cmake --preset release -DCHATVIEW_BUILD_TESTS=OFF
-cmake --preset release -DCHATVIEW_FRONTEND_DIST_DIR=/absolute/path/to/frontend/dist
-```
-
-## 固定运行时路径
-
-客户端当前存储以下文件：
+Go/Fyne 客户端当前存储以下文件：
 
 | 文件 | 路径 |
 |---|---|
-| 身份文件 | `${data_dir}/identity.bin` |
-| SQLite 缓存 | `${data_dir}/cache.db` |
+| 身份文件 | `${data_dir}/identity-go.bin` |
+| SQLite 缓存 | `${data_dir}/cache-go.db` |
 
-生产前端在构建时嵌入，通过 `saucer::embedded::all()` 加 `webview->serve("/index.html")` 加载；生产客户端中没有开发服务器 URL 回退机制。
+Go/Fyne 客户端不会读取旧 `identity.bin` 和 `cache.db`。已有 Ed25519 私钥可以通过导入身份功能写入当前的 `identity-go.bin`。
+
+## 迁移状态
+
+- Go/Fyne 入口：`cmd/chatview-fyne`
+- 配置加载：`internal/config`
+- 身份/PIN/导入导出：`internal/identity`
+- gRPC 客户端：`internal/rpcclient`
+- 本地缓存和 outbox：`internal/storage`
+- 应用编排：`internal/core`
+- 桌面 UI：`internal/ui`
+
+本地迁移验收目前覆盖身份创建/导入/导出、错误 PIN、损坏身份文件、配置解析、SQLite 缓存/outbox 生命周期、DTO JSON 字段兼容性，以及 fake gRPC server 下的登录签名、Bearer metadata、Chat/Admin/Event RPC 映射。真实 server 端到端联调仍需连接实际服务后验证。

@@ -13,7 +13,7 @@ option cc_enable_arenas = true;
 //   ──────                          ──────
 //   1. RequestChallenge(pub_key) ──→ 生成随机 nonce，关联 pub_key
 //   2.                       ←── 返回 challenge (bytes)
-//   3. C++ 用 Ed25519 私钥本地签名 challenge（私钥永不出 C++ 层）
+//   3. 客户端用 Ed25519 私钥本地签名 challenge（私钥不发送给服务端）
 //   4. Login(pub_key, sig) ──────→  验证 Ed25519 签名
 //   5.                       ←── 返回 session_token + role
 //

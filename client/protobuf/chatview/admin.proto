@@ -50,11 +50,11 @@ message PollAdminEventsResp {
 
 service AdminService {
   // 设置用户状态（封禁/解封）
-  // 封禁时服务端向目标用户推送 saucer:force-offline 事件
+  // 封禁时服务端向目标用户推送 force-offline 事件
   rpc SetUserStatus(SetUserStatusReq) returns (SetUserStatusResp);
 
   // 发送全服广播
-  // 所有在线用户收到 saucer:system-broadcast 事件
+  // 所有在线用户收到 system-broadcast 事件
   rpc Broadcast(BroadcastReq) returns (BroadcastResp);
 
   // 轮询管理员面板数据
