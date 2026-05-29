@@ -24,8 +24,9 @@ type AuthService struct {
 }
 
 func (s *AuthService) RequestChallenge(ctx context.Context, req *authpb.RequestChallengeReq) (*authpb.RequestChallengeResp, error) {
-	if _, err := auth.ParseEd25519PublicKey(req.GetPubKey()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid pub_key format")
+	publicKey := req.GetPublicKey()
+	if _, err := auth.ParseEd25519PublicKey(publicKey); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid public_key format")
 	}
 	challenge := auth.RandomBytes(32)
 	expiresAt := time.Now().UTC().Add(s.ChallengeTTL)
@@ -40,7 +41,7 @@ func (s *AuthService) RequestChallenge(ctx context.Context, req *authpb.RequestC
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO users (pub_key) VALUES ($1)
 		ON CONFLICT (pub_key) DO NOTHING
-	`, req.GetPubKey())
+	`, publicKey)
 	if err == nil {
 		if rows, rowsErr := result.RowsAffected(); rowsErr == nil && rows > 0 {
 			createdUser = true
@@ -50,7 +51,7 @@ func (s *AuthService) RequestChallenge(ctx context.Context, req *authpb.RequestC
 			VALUES ($1, $2, $3)
 			ON CONFLICT (pub_key) DO UPDATE
 			SET challenge = EXCLUDED.challenge, expires_at = EXCLUDED.expires_at, created_at = now()
-		`, req.GetPubKey(), challenge, expiresAt)
+		`, publicKey, challenge, expiresAt)
 	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, "database error")
@@ -67,9 +68,10 @@ func (s *AuthService) RequestChallenge(ctx context.Context, req *authpb.RequestC
 }
 
 func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.LoginResp, error) {
-	pubKey, err := auth.ParseEd25519PublicKey(req.GetPubKey())
+	publicKey := req.GetPublicKey()
+	pubKey, err := auth.ParseEd25519PublicKey(publicKey)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid pub_key format")
+		return nil, status.Error(codes.InvalidArgument, "invalid public_key format")
 	}
 	if len(req.GetChallengeSignature()) != ed25519.SignatureSize {
 		return nil, status.Error(codes.Unauthenticated, "invalid signature")
@@ -89,7 +91,7 @@ func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.
 		FROM challenges c
 		JOIN users u ON u.pub_key = c.pub_key
 		WHERE c.pub_key = $1 AND c.expires_at > now()
-	`, req.GetPubKey()).Scan(&challenge, &role, &userStatus)
+	`, publicKey).Scan(&challenge, &role, &userStatus)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "challenge expired")
 	}
@@ -103,9 +105,9 @@ func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO sessions (token, pub_key, expires_at, is_online)
 		VALUES ($1, $2, $3, false)
-	`, token, req.GetPubKey(), db.SessionExpires(s.SessionTTL))
+	`, token, publicKey, db.SessionExpires(s.SessionTTL))
 	if err == nil {
-		_, err = tx.ExecContext(ctx, `DELETE FROM challenges WHERE pub_key = $1`, req.GetPubKey())
+		_, err = tx.ExecContext(ctx, `DELETE FROM challenges WHERE pub_key = $1`, publicKey)
 	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, "database error")
@@ -113,5 +115,5 @@ func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.
 	if err := tx.Commit(); err != nil {
 		return nil, status.Error(codes.Internal, "database error")
 	}
-	return &authpb.LoginResp{SessionToken: token, Role: role, PubKey: req.GetPubKey()}, nil
+	return &authpb.LoginResp{SessionToken: token, Role: role, PublicKey: publicKey}, nil
 }

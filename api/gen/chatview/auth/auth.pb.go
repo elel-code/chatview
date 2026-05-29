@@ -24,7 +24,7 @@ const (
 // 获取挑战（服务端生成随机 nonce）
 type RequestChallengeReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PubKey        string                 `protobuf:"bytes,1,opt,name=pub_key,json=pubKey,proto3" json:"pub_key,omitempty"` // 用户 Ed25519 公钥（base64 或 hex）
+	PublicKey     string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // 用户 Ed25519 公钥（base64 或 hex）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -59,9 +59,9 @@ func (*RequestChallengeReq) Descriptor() ([]byte, []int) {
 	return file_chatview_auth_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *RequestChallengeReq) GetPubKey() string {
+func (x *RequestChallengeReq) GetPublicKey() string {
 	if x != nil {
-		return x.PubKey
+		return x.PublicKey
 	}
 	return ""
 }
@@ -121,7 +121,7 @@ func (x *RequestChallengeResp) GetExpiresAt() int64 {
 // 登录
 type LoginReq struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	PubKey             string                 `protobuf:"bytes,1,opt,name=pub_key,json=pubKey,proto3" json:"pub_key,omitempty"`                                     // 用户 Ed25519 公钥
+	PublicKey          string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`                            // 用户 Ed25519 公钥
 	ChallengeSignature []byte                 `protobuf:"bytes,2,opt,name=challenge_signature,json=challengeSignature,proto3" json:"challenge_signature,omitempty"` // 用户用私钥对 challenge 的 Ed25519 签名
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -157,9 +157,9 @@ func (*LoginReq) Descriptor() ([]byte, []int) {
 	return file_chatview_auth_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *LoginReq) GetPubKey() string {
+func (x *LoginReq) GetPublicKey() string {
 	if x != nil {
-		return x.PubKey
+		return x.PublicKey
 	}
 	return ""
 }
@@ -175,7 +175,7 @@ type LoginResp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionToken  string                 `protobuf:"bytes,1,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"` // 后续 RPC 用此 token 鉴权（放入 gRPC metadata）
 	Role          int32                  `protobuf:"varint,2,opt,name=role,proto3" json:"role,omitempty"`                                    // 0 = USER, 1 = ADMIN（与前端 identity.role 对齐）
-	PubKey        string                 `protobuf:"bytes,3,opt,name=pub_key,json=pubKey,proto3" json:"pub_key,omitempty"`                   // 回显公钥，供前端校验
+	PublicKey     string                 `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`          // 回显公钥，供前端校验
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -224,9 +224,9 @@ func (x *LoginResp) GetRole() int32 {
 	return 0
 }
 
-func (x *LoginResp) GetPubKey() string {
+func (x *LoginResp) GetPublicKey() string {
 	if x != nil {
-		return x.PubKey
+		return x.PublicKey
 	}
 	return ""
 }
@@ -235,20 +235,23 @@ var File_chatview_auth_proto protoreflect.FileDescriptor
 
 const file_chatview_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x13chatview/auth.proto\x12\rchatview.auth\".\n" +
-	"\x13RequestChallengeReq\x12\x17\n" +
-	"\apub_key\x18\x01 \x01(\tR\x06pubKey\"S\n" +
+	"\x13chatview/auth.proto\x12\rchatview.auth\"4\n" +
+	"\x13RequestChallengeReq\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey\"S\n" +
 	"\x14RequestChallengeResp\x12\x1c\n" +
 	"\tchallenge\x18\x01 \x01(\fR\tchallenge\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\x03R\texpiresAt\"T\n" +
-	"\bLoginReq\x12\x17\n" +
-	"\apub_key\x18\x01 \x01(\tR\x06pubKey\x12/\n" +
-	"\x13challenge_signature\x18\x02 \x01(\fR\x12challengeSignature\"]\n" +
+	"expires_at\x18\x02 \x01(\x03R\texpiresAt\"Z\n" +
+	"\bLoginReq\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey\x12/\n" +
+	"\x13challenge_signature\x18\x02 \x01(\fR\x12challengeSignature\"c\n" +
 	"\tLoginResp\x12#\n" +
 	"\rsession_token\x18\x01 \x01(\tR\fsessionToken\x12\x12\n" +
-	"\x04role\x18\x02 \x01(\x05R\x04role\x12\x17\n" +
-	"\apub_key\x18\x03 \x01(\tR\x06pubKey2\xa6\x01\n" +
+	"\x04role\x18\x02 \x01(\x05R\x04role\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x03 \x01(\tR\tpublicKey2\xa6\x01\n" +
 	"\vAuthService\x12[\n" +
 	"\x10RequestChallenge\x12\".chatview.auth.RequestChallengeReq\x1a#.chatview.auth.RequestChallengeResp\x12:\n" +
 	"\x05Login\x12\x17.chatview.auth.LoginReq\x1a\x18.chatview.auth.LoginRespB*Z%chatview/api/gen/chatview/auth;authpb\xf8\x01\x01b\x06proto3"

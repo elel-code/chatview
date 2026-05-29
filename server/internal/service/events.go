@@ -28,22 +28,22 @@ func (s *EventService) Subscribe(req *eventspb.SubscribeReq, stream eventspb.Eve
 		clientID = principal.Token
 	}
 	ch := make(chan *eventspb.ServerEvent, 64)
-	s.Hub.Register(principal.PubKey, clientID, ch)
+	s.Hub.Register(principal.PublicKey, clientID, ch)
 
 	bg := context.Background()
-	wasOnline, _ := s.Store.IsUserOnline(bg, principal.PubKey)
+	wasOnline, _ := s.Store.IsUserOnline(bg, principal.PublicKey)
 	_ = s.Store.MarkSessionClient(bg, principal.Token, clientID, true)
 	if !wasOnline {
-		s.notifyFriendsStatus(bg, principal.PubKey, true)
+		s.notifyFriendsStatus(bg, principal.PublicKey, true)
 		s.notifyAdmins(bg)
 	}
 
 	defer func() {
-		s.Hub.Unregister(principal.PubKey, clientID)
+		s.Hub.Unregister(principal.PublicKey, clientID)
 		_ = s.Store.MarkSessionClient(bg, principal.Token, clientID, false)
-		isOnline, _ := s.Store.IsUserOnline(bg, principal.PubKey)
+		isOnline, _ := s.Store.IsUserOnline(bg, principal.PublicKey)
 		if !isOnline {
-			s.notifyFriendsStatus(bg, principal.PubKey, false)
+			s.notifyFriendsStatus(bg, principal.PublicKey, false)
 			s.notifyAdmins(bg)
 		}
 	}()
@@ -64,8 +64,8 @@ func (s *EventService) Subscribe(req *eventspb.SubscribeReq, stream eventspb.Eve
 }
 
 type watcherRow struct {
-	PubKey string `db:"user_pub_key"`
-	Alias  string `db:"alias"`
+	PublicKey string `db:"user_pub_key"`
+	Alias     string `db:"alias"`
 }
 
 func (s *EventService) notifyFriendsStatus(ctx context.Context, pubKey string, online bool) {
@@ -78,11 +78,11 @@ func (s *EventService) notifyFriendsStatus(ctx context.Context, pubKey string, o
 		return
 	}
 	for _, watcher := range watchers {
-		s.Hub.Push(watcher.PubKey, &eventspb.ServerEvent{Event: &eventspb.ServerEvent_FriendStatus{
+		s.Hub.Push(watcher.PublicKey, &eventspb.ServerEvent{Event: &eventspb.ServerEvent_FriendStatus{
 			FriendStatus: &eventspb.FriendStatusEvent{
-				PubKey:   pubKey,
-				Alias:    watcher.Alias,
-				IsOnline: online,
+				PublicKey: pubKey,
+				Alias:     watcher.Alias,
+				IsOnline:  online,
 			},
 		}})
 	}

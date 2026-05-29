@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"chatview/client/internal/core"
-
-	"fyne.io/fyne/v2"
+	"chatview/client/internal/domain"
 )
 
 func (a *Application) refreshFriends() {
@@ -15,65 +13,57 @@ func (a *Application) refreshFriends() {
 		return
 	}
 	a.refreshing = true
-	version := a.sessionVersion
-	ctx := a.sessionContext()
 	a.setStatus("refreshing friends...")
-	go func() {
-		friends, err := a.service.ListFriends(ctx)
-		fyne.Do(func() {
-			a.refreshing = false
-			if ctx.Err() != nil || !a.isCurrentSession(version) || a.friendList == nil {
-				return
-			}
-			if err != nil {
-				a.setStatus(err.Error())
-				return
-			}
-			a.friends = friends
-			a.friendList.Refresh()
-			a.reselectFriend()
-			a.updateEmptyStates()
-			a.refreshOutboxStatus()
-			a.setStatus(fmt.Sprintf("%d friends", len(friends)))
-			if !a.offline {
-				a.syncUnreadConversations(friends)
-			}
-		})
-	}()
+	runSessionTask(a, a.service.ListFriends, func(friends []domain.Friend, err error) {
+		a.refreshing = false
+		if a.friendList == nil {
+			return
+		}
+		if err != nil {
+			a.setStatus(err.Error())
+			return
+		}
+		a.friends = friends
+		a.friendList.Refresh()
+		a.reselectFriend()
+		a.updateEmptyStates()
+		a.refreshOutboxStatus()
+		a.setStatus(fmt.Sprintf("%d friends", len(friends)))
+		if !a.offline {
+			a.syncUnreadConversations(friends)
+		}
+	})
 }
 
 func (a *Application) loadHistory(publicKey string) {
 	a.setChatTitle(publicKey)
 	a.historyRequest++
 	request := a.historyRequest
-	version := a.sessionVersion
-	ctx := a.sessionContext()
 	a.setStatus("loading messages...")
 	a.historyLoading = true
 	a.updateHistoryState()
-	go func() {
-		page, err := a.service.GetHistory(ctx, publicKey, "", 50, "older")
-		fyne.Do(func() {
-			if ctx.Err() != nil || !a.isCurrentSession(version) || request != a.historyRequest || !a.isSelectedConversation(publicKey) {
-				return
-			}
-			a.historyLoading = false
-			if err != nil {
-				a.setStatus(err.Error())
-				a.updateHistoryState()
-				return
-			}
-			a.replaceHistory(page)
-			a.refreshMessageView(false)
+	runSessionTask(a, func(ctx context.Context) (domain.HistoryPage, error) {
+		return a.service.GetHistory(ctx, publicKey, "", 50, "older")
+	}, func(page domain.HistoryPage, err error) {
+		if request != a.historyRequest || !a.isSelectedConversation(publicKey) {
+			return
+		}
+		a.historyLoading = false
+		if err != nil {
+			a.setStatus(err.Error())
 			a.updateHistoryState()
-			if len(a.messages) > 0 {
-				a.scrollMessagesToBottom()
-				a.markConversationReadThroughLastMessage(ctx, publicKey)
-			}
-			a.refreshOutboxStatus()
-			a.updateMessageCountStatus()
-		})
-	}()
+			return
+		}
+		a.replaceHistory(page)
+		a.refreshMessageView(false)
+		a.updateHistoryState()
+		if len(a.messages) > 0 {
+			a.scrollMessagesToBottom()
+			a.markConversationReadThroughLastMessage(a.sessionContext(), publicKey)
+		}
+		a.refreshOutboxStatus()
+		a.updateMessageCountStatus()
+	})
 }
 
 func (a *Application) loadOlderHistory() {
@@ -94,27 +84,24 @@ func (a *Application) loadOlderHistory() {
 	peer := a.selectedFriend.PublicKey
 	cursor := a.historyCursor
 	request := a.historyRequest
-	version := a.sessionVersion
-	ctx := a.sessionContext()
-	go func() {
-		page, err := a.service.GetHistory(ctx, peer, cursor, 50, "older")
-		fyne.Do(func() {
-			if ctx.Err() != nil || !a.isCurrentSession(version) || request != a.historyRequest || !a.isSelectedConversation(peer) {
-				return
-			}
-			a.historyLoading = false
-			if err != nil {
-				a.setStatus(err.Error())
-				a.updateHistoryState()
-				return
-			}
-			a.prependHistory(page)
-			a.refreshMessageView(false)
+	runSessionTask(a, func(ctx context.Context) (domain.HistoryPage, error) {
+		return a.service.GetHistory(ctx, peer, cursor, 50, "older")
+	}, func(page domain.HistoryPage, err error) {
+		if request != a.historyRequest || !a.isSelectedConversation(peer) {
+			return
+		}
+		a.historyLoading = false
+		if err != nil {
+			a.setStatus(err.Error())
 			a.updateHistoryState()
-			a.refreshOutboxStatus()
-			a.updateMessageCountStatus()
-		})
-	}()
+			return
+		}
+		a.prependHistory(page)
+		a.refreshMessageView(false)
+		a.updateHistoryState()
+		a.refreshOutboxStatus()
+		a.updateMessageCountStatus()
+	})
 }
 
 func (a *Application) sendMessage() {
@@ -134,29 +121,23 @@ func (a *Application) sendMessage() {
 	a.messageBox.SetText("")
 	a.sending = true
 	a.updateComposerState()
-	version := a.sessionVersion
-	ctx := a.sessionContext()
 	a.setStatus("sending...")
-	go func() {
-		message, err := a.service.SendMessage(ctx, receiver, text)
-		fyne.Do(func() {
-			a.sending = false
-			a.updateComposerState()
-			if ctx.Err() != nil || !a.isCurrentSession(version) {
-				return
-			}
-			if err != nil {
-				a.messageBox.SetText(text)
-				a.setStatus(err.Error())
-				return
-			}
-			a.upsertMessage(message)
-			a.refreshMessageView(true)
-			a.refreshOutboxStatus()
-			a.refreshFriends()
-			a.setStatus(message.Delivery)
-		})
-	}()
+	runSessionTask(a, func(ctx context.Context) (domain.Message, error) {
+		return a.service.SendMessage(ctx, receiver, text)
+	}, func(message domain.Message, err error) {
+		a.sending = false
+		a.updateComposerState()
+		if err != nil {
+			a.messageBox.SetText(text)
+			a.setStatus(err.Error())
+			return
+		}
+		a.upsertMessage(message)
+		a.refreshMessageView(true)
+		a.refreshOutboxStatus()
+		a.refreshFriends()
+		a.setStatus(message.Delivery)
+	})
 }
 
 func (a *Application) syncConversation(publicKey string, expectedCount int32) {
@@ -164,38 +145,32 @@ func (a *Application) syncConversation(publicKey string, expectedCount int32) {
 	if publicKey == "" {
 		return
 	}
-	version := a.sessionVersion
 	request := a.historyRequest
-	ctx := a.sessionContext()
-	go func() {
-		page, err := a.service.SyncConversation(ctx, publicKey, expectedCount)
-		fyne.Do(func() {
-			if ctx.Err() != nil || !a.isCurrentSession(version) {
-				return
-			}
-			if err != nil {
-				a.setStatus(err.Error())
-				return
-			}
-			if !a.isSelectedConversation(publicKey) || request != a.historyRequest {
-				return
-			}
-			if len(page.Messages) == 0 {
-				return
-			}
-			added := a.mergeMessages(page.Messages)
-			a.refreshMessageView(true)
-			a.refreshOutboxStatus()
-			a.markConversationReadThroughLastMessage(ctx, publicKey)
-			a.updateMessageCountStatus()
-			if added > 0 {
-				a.refreshFriends()
-			}
-		})
-	}()
+	runSessionTask(a, func(ctx context.Context) (domain.HistoryPage, error) {
+		return a.service.SyncConversation(ctx, publicKey, expectedCount)
+	}, func(page domain.HistoryPage, err error) {
+		if err != nil {
+			a.setStatus(err.Error())
+			return
+		}
+		if !a.isSelectedConversation(publicKey) || request != a.historyRequest {
+			return
+		}
+		if len(page.Messages) == 0 {
+			return
+		}
+		added := a.mergeMessages(page.Messages)
+		a.refreshMessageView(true)
+		a.refreshOutboxStatus()
+		a.markConversationReadThroughLastMessage(a.sessionContext(), publicKey)
+		a.updateMessageCountStatus()
+		if added > 0 {
+			a.refreshFriends()
+		}
+	})
 }
 
-func (a *Application) syncUnreadConversations(friends []core.Friend) {
+func (a *Application) syncUnreadConversations(friends []domain.Friend) {
 	if a.offline || a.syncingUnread {
 		return
 	}
@@ -204,23 +179,19 @@ func (a *Application) syncUnreadConversations(friends []core.Friend) {
 		return
 	}
 	a.syncingUnread = true
-	version := a.sessionVersion
-	ctx := a.sessionContext()
+	snapshot := a.currentSessionSnapshot()
 	go func() {
-		defer fyne.Do(func() {
-			if a.sessionVersion == version {
+		defer func() {
+			a.doInSession(snapshot, func() {
 				a.syncingUnread = false
-			}
-		})
+			})
+		}()
 		for _, peer := range peers {
-			if ctx.Err() != nil {
+			if snapshot.ctx.Err() != nil {
 				return
 			}
-			page, err := a.service.SyncConversation(ctx, peer.PublicKey, peer.Unread)
-			fyne.Do(func() {
-				if ctx.Err() != nil || !a.isCurrentSession(version) {
-					return
-				}
+			page, err := a.service.SyncConversation(snapshot.ctx, peer.PublicKey, peer.Unread)
+			a.doInSession(snapshot, func() {
 				if err != nil {
 					a.setStatus(err.Error())
 					return
@@ -234,20 +205,20 @@ func (a *Application) syncUnreadConversations(friends []core.Friend) {
 				}
 				a.refreshMessageView(true)
 				a.refreshOutboxStatus()
-				a.markConversationReadThroughLastMessage(ctx, peer.PublicKey)
+				a.markConversationReadThroughLastMessage(snapshot.ctx, peer.PublicKey)
 				a.updateMessageCountStatus()
 			})
 		}
 	}()
 }
 
-func (a *Application) replaceHistory(page core.HistoryPage) {
+func (a *Application) replaceHistory(page domain.HistoryPage) {
 	a.messages = page.Messages
 	a.historyCursor = page.NextCursor
 	a.historyHasMore = page.HasMore
 }
 
-func (a *Application) prependHistory(page core.HistoryPage) {
+func (a *Application) prependHistory(page domain.HistoryPage) {
 	a.messages = append(page.Messages, a.messages...)
 	a.historyCursor = page.NextCursor
 	a.historyHasMore = page.HasMore
@@ -283,8 +254,8 @@ func (a *Application) markConversationReadThroughLastMessage(ctx context.Context
 	}()
 }
 
-func friendsWithUnread(friends []core.Friend) []core.Friend {
-	peers := make([]core.Friend, 0, len(friends))
+func friendsWithUnread(friends []domain.Friend) []domain.Friend {
+	peers := make([]domain.Friend, 0, len(friends))
 	for _, friend := range friends {
 		if friend.Unread > 0 && strings.TrimSpace(friend.PublicKey) != "" {
 			peers = append(peers, friend)

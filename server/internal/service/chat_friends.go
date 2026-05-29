@@ -13,14 +13,14 @@ import (
 )
 
 type friendRow struct {
-	PubKey   string `db:"pub_key"`
-	Alias    string `db:"alias"`
-	IsOnline bool   `db:"is_online"`
-	Unread   int32  `db:"unread"`
+	PublicKey string `db:"pub_key"`
+	Alias     string `db:"alias"`
+	IsOnline  bool   `db:"is_online"`
+	Unread    int32  `db:"unread"`
 }
 
 func (s *ChatService) ListFriends(ctx context.Context, _ *chatpb.ListFriendsReq) (*chatpb.ListFriendsResp, error) {
-	pubKey := contextx.PubKey(ctx)
+	pubKey := contextx.PublicKey(ctx)
 	var rows []friendRow
 	if err := s.Store.DB.SelectContext(ctx, &rows, `
 		SELECT f.friend_pub_key AS pub_key, f.alias,
@@ -49,20 +49,20 @@ func (s *ChatService) ListFriends(ctx context.Context, _ *chatpb.ListFriendsReq)
 	resp := &chatpb.ListFriendsResp{Friends: make([]*commonpb.FriendInfo, 0, len(rows))}
 	for _, row := range rows {
 		resp.Friends = append(resp.Friends, &commonpb.FriendInfo{
-			PubKey:   row.PubKey,
-			Alias:    row.Alias,
-			IsOnline: row.IsOnline,
-			Unread:   row.Unread,
+			PublicKey: row.PublicKey,
+			Alias:     row.Alias,
+			IsOnline:  row.IsOnline,
+			Unread:    row.Unread,
 		})
 	}
 	return resp, nil
 }
 
 func (s *ChatService) AddFriend(ctx context.Context, req *chatpb.AddFriendReq) (*chatpb.AddFriendResp, error) {
-	pubKey := contextx.PubKey(ctx)
-	target := strings.TrimSpace(req.GetTargetPubKey())
+	pubKey := contextx.PublicKey(ctx)
+	target := strings.TrimSpace(req.GetTargetPublicKey())
 	if target == "" || target == pubKey {
-		return nil, status.Error(codes.InvalidArgument, "invalid target_pub_key")
+		return nil, status.Error(codes.InvalidArgument, "invalid target_public_key")
 	}
 	var exists bool
 	if err := s.Store.DB.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE pub_key = $1 AND status = 1)`, target); err != nil {

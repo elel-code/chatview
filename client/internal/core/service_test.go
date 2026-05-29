@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"testing"
 
+	"chatview/client/internal/domain"
 	"chatview/client/internal/identity"
-	"chatview/client/internal/rpcclient"
 	"chatview/client/internal/storage"
 )
 
@@ -83,7 +83,7 @@ func TestServiceSyncConversationFillsServerSeqGaps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rpc := &syncFakeRPC{history: []rpcclient.Message{
+	rpc := &syncFakeRPC{history: []domain.Message{
 		{ID: "m1", Sender: "alice", Text: "one", Timestamp: "2026-01-01T00:00:01Z", Delivery: "incoming", ServerSeq: 1},
 		{ID: "m2", Sender: "alice", Text: "two", Timestamp: "2026-01-01T00:00:02Z", Delivery: "incoming", ServerSeq: 2},
 		{ID: "m3", Sender: "alice", Text: "three", Timestamp: "2026-01-01T00:00:03Z", Delivery: "incoming", ServerSeq: 3},
@@ -128,17 +128,17 @@ type historyCall struct {
 }
 
 type syncFakeRPC struct {
-	history []rpcclient.Message
+	history []domain.Message
 	calls   []historyCall
 }
 
-func (r *syncFakeRPC) Login(context.Context, string, func([]byte) []byte) (rpcclient.LoginResult, error) {
-	return rpcclient.LoginResult{}, nil
+func (r *syncFakeRPC) Login(context.Context, string, func([]byte) []byte) (domain.LoginResult, error) {
+	return domain.LoginResult{}, nil
 }
 
 func (r *syncFakeRPC) ClearSession() {}
 
-func (r *syncFakeRPC) ListFriends(context.Context) ([]rpcclient.Friend, error) {
+func (r *syncFakeRPC) ListFriends(context.Context) ([]domain.Friend, error) {
 	return nil, nil
 }
 
@@ -146,13 +146,13 @@ func (r *syncFakeRPC) AddFriend(context.Context, string) error {
 	return nil
 }
 
-func (r *syncFakeRPC) GetHistory(_ context.Context, _ string, cursor string, limit int32, direction string) (rpcclient.HistoryPage, error) {
+func (r *syncFakeRPC) GetHistory(_ context.Context, _ string, cursor string, limit int32, direction string) (domain.HistoryPage, error) {
 	r.calls = append(r.calls, historyCall{cursor: cursor, direction: direction})
 	if limit <= 0 {
 		limit = 30
 	}
 	cursorSeq, _ := strconv.ParseInt(cursor, 10, 64)
-	var messages []rpcclient.Message
+	var messages []domain.Message
 	if direction == "newer" {
 		for _, message := range r.history {
 			if cursor == "" || message.ServerSeq > cursorSeq {
@@ -176,27 +176,27 @@ func (r *syncFakeRPC) GetHistory(_ context.Context, _ string, cursor string, lim
 	if hasMore && len(messages) > 0 {
 		nextCursor = strconv.FormatInt(messages[len(messages)-1].ServerSeq, 10)
 	}
-	return rpcclient.HistoryPage{Messages: messages, NextCursor: nextCursor, HasMore: hasMore}, nil
+	return domain.HistoryPage{Messages: messages, NextCursor: nextCursor, HasMore: hasMore}, nil
 }
 
-func (r *syncFakeRPC) SendMessageWithID(context.Context, string, string, string) (rpcclient.SendResult, error) {
-	return rpcclient.SendResult{}, nil
+func (r *syncFakeRPC) SendMessageWithID(context.Context, string, string, string) (domain.SendResult, error) {
+	return domain.SendResult{}, nil
 }
 
 func (r *syncFakeRPC) MarkConversationRead(context.Context, string, int64) error {
 	return nil
 }
 
-func (r *syncFakeRPC) Subscribe(context.Context) (<-chan rpcclient.Event, <-chan error) {
-	events := make(chan rpcclient.Event)
+func (r *syncFakeRPC) Subscribe(context.Context) (<-chan domain.Event, <-chan error) {
+	events := make(chan domain.Event)
 	errs := make(chan error)
 	close(events)
 	close(errs)
 	return events, errs
 }
 
-func (r *syncFakeRPC) PollAdminEvents(context.Context) (rpcclient.AdminUpdate, error) {
-	return rpcclient.AdminUpdate{}, nil
+func (r *syncFakeRPC) PollAdminEvents(context.Context) (domain.AdminUpdate, error) {
+	return domain.AdminUpdate{}, nil
 }
 
 func (r *syncFakeRPC) SetUserStatus(context.Context, string, bool) error {

@@ -5,20 +5,21 @@ import (
 	"errors"
 	"strings"
 
+	"chatview/client/internal/domain"
 	"chatview/client/internal/storage"
 )
 
-func (s *Service) SendMessage(ctx context.Context, receiverPublicKey string, text string) (Message, error) {
+func (s *Service) SendMessage(ctx context.Context, receiverPublicKey string, text string) (domain.Message, error) {
 	receiverPublicKey = strings.TrimSpace(receiverPublicKey)
 	if receiverPublicKey == "" {
-		return Message{}, errors.New("receiver public key is required")
+		return domain.Message{}, errors.New("receiver public key is required")
 	}
 	if strings.TrimSpace(text) == "" {
-		return Message{}, errors.New("message is required")
+		return domain.Message{}, errors.New("message is required")
 	}
 	clientID := newClientMessageID()
 	now := nowRFC3339()
-	pending := Message{
+	pending := domain.Message{
 		ID:        clientID,
 		Sender:    s.PublicKey(),
 		Text:      text,
@@ -28,9 +29,9 @@ func (s *Service) SendMessage(ctx context.Context, receiverPublicKey string, tex
 	if s.cache == nil {
 		message, err := s.rpc.SendMessageWithID(ctx, receiverPublicKey, text, clientID)
 		if err != nil {
-			return Message{}, err
+			return domain.Message{}, err
 		}
-		return Message{
+		return domain.Message{
 			ID:        message.ID,
 			Sender:    s.PublicKey(),
 			Text:      text,
@@ -46,7 +47,7 @@ func (s *Service) SendMessage(ctx context.Context, receiverPublicKey string, tex
 		Status:      0,
 		CreatedAt:   now,
 	}, pending.Sender); err != nil {
-		return Message{}, err
+		return domain.Message{}, err
 	}
 	if s.IsOffline() {
 		return pending, nil
@@ -59,7 +60,7 @@ func (s *Service) SendMessage(ctx context.Context, receiverPublicKey string, tex
 	if err == nil && item.ID != "" {
 		return messagesFromCache([]storage.Message{item})[0], nil
 	}
-	return Message{
+	return domain.Message{
 		ID:        clientID,
 		Sender:    pending.Sender,
 		Text:      text,

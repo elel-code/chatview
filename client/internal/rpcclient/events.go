@@ -4,10 +4,11 @@ import (
 	"context"
 
 	eventspb "chatview/api/gen/chatview/events"
+	"chatview/client/internal/domain"
 )
 
-func (c *Client) Subscribe(ctx context.Context) (<-chan Event, <-chan error) {
-	events := make(chan Event, 16)
+func (c *Client) Subscribe(ctx context.Context) (<-chan domain.Event, <-chan error) {
+	events := make(chan domain.Event, 16)
 	errs := make(chan error, 1)
 	go func() {
 		defer close(events)

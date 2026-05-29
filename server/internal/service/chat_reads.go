@@ -13,10 +13,10 @@ import (
 )
 
 func (s *ChatService) MarkConversationRead(ctx context.Context, req *chatpb.MarkConversationReadReq) (*chatpb.MarkConversationReadResp, error) {
-	pubKey := contextx.PubKey(ctx)
-	peer := strings.TrimSpace(req.GetPeerPubKey())
+	pubKey := contextx.PublicKey(ctx)
+	peer := strings.TrimSpace(req.GetPeerPublicKey())
 	if peer == "" || peer == pubKey {
-		return nil, status.Error(codes.InvalidArgument, "invalid peer_pub_key")
+		return nil, status.Error(codes.InvalidArgument, "invalid peer_public_key")
 	}
 	convID, err := db.LookupConversation(ctx, s.Store.DB, pubKey, peer)
 	if err != nil {

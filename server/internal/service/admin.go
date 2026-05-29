@@ -22,9 +22,9 @@ type AdminService struct {
 }
 
 func (s *AdminService) SetUserStatus(ctx context.Context, req *adminpb.SetUserStatusReq) (*adminpb.SetUserStatusResp, error) {
-	target := strings.TrimSpace(req.GetTargetPubKey())
+	target := strings.TrimSpace(req.GetTargetPublicKey())
 	if target == "" {
-		return nil, status.Error(codes.InvalidArgument, "target_pub_key is required")
+		return nil, status.Error(codes.InvalidArgument, "target_public_key is required")
 	}
 	statusValue := req.GetStatus()
 	if statusValue != commonpb.UserStatus_USER_STATUS_ACTIVE && statusValue != commonpb.UserStatus_USER_STATUS_BANNED {
@@ -70,7 +70,7 @@ func (s *AdminService) Broadcast(ctx context.Context, req *adminpb.BroadcastReq)
 	if req.GetText() == "" {
 		return nil, status.Error(codes.InvalidArgument, "text is required")
 	}
-	from := contextx.PubKey(ctx)
+	from := contextx.PublicKey(ctx)
 	s.Hub.Broadcast(&eventspb.ServerEvent{Event: &eventspb.ServerEvent_SystemBroadcast{
 		SystemBroadcast: &eventspb.SystemBroadcastEvent{Text: req.GetText(), FromAdmin: from},
 	}})
@@ -78,9 +78,9 @@ func (s *AdminService) Broadcast(ctx context.Context, req *adminpb.BroadcastReq)
 }
 
 type adminUserRow struct {
-	PubKey   string `db:"pub_key"`
-	IsOnline bool   `db:"is_online"`
-	IsBanned bool   `db:"is_banned"`
+	PublicKey string `db:"pub_key"`
+	IsOnline  bool   `db:"is_online"`
+	IsBanned  bool   `db:"is_banned"`
 }
 
 func (s *AdminService) PollAdminEvents(ctx context.Context, _ *adminpb.PollAdminEventsReq) (*adminpb.PollAdminEventsResp, error) {
@@ -110,9 +110,9 @@ func (s *AdminService) PollAdminEvents(ctx context.Context, _ *adminpb.PollAdmin
 			stats.BannedUsers++
 		}
 		resp.Update.Users = append(resp.Update.Users, &commonpb.UserInfo{
-			PubKey:   row.PubKey,
-			IsOnline: row.IsOnline,
-			IsBanned: row.IsBanned,
+			PublicKey: row.PublicKey,
+			IsOnline:  row.IsOnline,
+			IsBanned:  row.IsBanned,
 		})
 	}
 	return resp, nil

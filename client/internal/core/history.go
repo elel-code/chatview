@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"chatview/client/internal/rpcclient"
+	"chatview/client/internal/domain"
 )
 
-func (s *Service) ListFriends(ctx context.Context) ([]Friend, error) {
+func (s *Service) ListFriends(ctx context.Context) ([]domain.Friend, error) {
 	if s.IsOffline() {
 		if s.cache == nil {
 			return nil, errors.New("offline")
@@ -31,7 +31,7 @@ func (s *Service) ListFriends(ctx context.Context) ([]Friend, error) {
 		}
 		return friendsFromCache(cached), nil
 	}
-	result := friendsFromRPC(friends)
+	result := friends
 	if s.cache != nil {
 		_ = s.cache.SaveFriends(friendsToCache(result))
 	}
@@ -49,10 +49,10 @@ func (s *Service) AddFriend(ctx context.Context, publicKey string) error {
 	return s.rpc.AddFriend(ctx, publicKey)
 }
 
-func (s *Service) GetHistory(ctx context.Context, peerPublicKey string, cursor string, limit int32, direction string) (HistoryPage, error) {
+func (s *Service) GetHistory(ctx context.Context, peerPublicKey string, cursor string, limit int32, direction string) (domain.HistoryPage, error) {
 	peerPublicKey = strings.TrimSpace(peerPublicKey)
 	if peerPublicKey == "" {
-		return HistoryPage{}, errors.New("peer public key is required")
+		return domain.HistoryPage{}, errors.New("peer public key is required")
 	}
 	if s.IsOffline() {
 		return s.cachedHistory(peerPublicKey, cursor, limit, direction)
@@ -60,24 +60,24 @@ func (s *Service) GetHistory(ctx context.Context, peerPublicKey string, cursor s
 	page, err := s.rpc.GetHistory(ctx, peerPublicKey, cursor, limit, direction)
 	if err != nil {
 		if s.cache == nil {
-			return HistoryPage{}, err
+			return domain.HistoryPage{}, err
 		}
 		cached, cacheErr := s.cachedHistory(peerPublicKey, cursor, limit, direction)
 		if cacheErr != nil || len(cached.Messages) == 0 {
-			return HistoryPage{}, err
+			return domain.HistoryPage{}, err
 		}
 		return cached, nil
 	}
 	return s.cacheHistoryPage(peerPublicKey, page), nil
 }
 
-func (s *Service) SyncConversation(ctx context.Context, peerPublicKey string, expectedCount int32) (HistoryPage, error) {
+func (s *Service) SyncConversation(ctx context.Context, peerPublicKey string, expectedCount int32) (domain.HistoryPage, error) {
 	peerPublicKey = strings.TrimSpace(peerPublicKey)
 	if peerPublicKey == "" {
-		return HistoryPage{}, errors.New("peer public key is required")
+		return domain.HistoryPage{}, errors.New("peer public key is required")
 	}
 	if s.IsOffline() {
-		return HistoryPage{}, errors.New("offline")
+		return domain.HistoryPage{}, errors.New("offline")
 	}
 	if s.cache == nil {
 		return s.GetHistory(ctx, peerPublicKey, "", syncLimit(expectedCount), "older")
@@ -86,18 +86,18 @@ func (s *Service) SyncConversation(ctx context.Context, peerPublicKey string, ex
 	limit := syncLimit(expectedCount)
 	synced, err := s.fillHistoryGaps(ctx, peerPublicKey, limit)
 	if err != nil {
-		return HistoryPage{}, err
+		return domain.HistoryPage{}, err
 	}
 	latest, err := s.syncNewerHistory(ctx, peerPublicKey, limit, expectedCount)
 	if err != nil {
-		return HistoryPage{}, err
+		return domain.HistoryPage{}, err
 	}
 	synced = append(synced, latest...)
-	return HistoryPage{Messages: synced}, nil
+	return domain.HistoryPage{Messages: synced}, nil
 }
 
-func (s *Service) fillHistoryGaps(ctx context.Context, peerPublicKey string, limit int32) ([]Message, error) {
-	var synced []Message
+func (s *Service) fillHistoryGaps(ctx context.Context, peerPublicKey string, limit int32) ([]domain.Message, error) {
+	var synced []domain.Message
 	attemptedGaps := make(map[int64]bool)
 	for attempts := 0; attempts < 100; attempts++ {
 		previousSeq, missingSeq, ok, err := s.cache.FirstServerSeqGap(peerPublicKey)
@@ -120,7 +120,7 @@ func (s *Service) fillHistoryGaps(ctx context.Context, peerPublicKey string, lim
 	return synced, nil
 }
 
-func (s *Service) syncNewerHistory(ctx context.Context, peerPublicKey string, limit int32, expectedCount int32) ([]Message, error) {
+func (s *Service) syncNewerHistory(ctx context.Context, peerPublicKey string, limit int32, expectedCount int32) ([]domain.Message, error) {
 	cursor, err := s.cache.MaxServerSeq(peerPublicKey)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (s *Service) syncNewerHistory(ctx context.Context, peerPublicKey string, li
 		return page.Messages, err
 	}
 
-	var synced []Message
+	var synced []domain.Message
 	for attempts := 0; attempts < 100; attempts++ {
 		page, err := s.GetHistory(ctx, peerPublicKey, strconv.FormatInt(cursor, 10), limit, "newer")
 		if err != nil {
@@ -152,27 +152,27 @@ func (s *Service) syncNewerHistory(ctx context.Context, peerPublicKey string, li
 	return synced, nil
 }
 
-func (s *Service) cachedHistory(peerPublicKey string, cursor string, limit int32, direction string) (HistoryPage, error) {
+func (s *Service) cachedHistory(peerPublicKey string, cursor string, limit int32, direction string) (domain.HistoryPage, error) {
 	if s.cache == nil {
-		return HistoryPage{}, errors.New("offline")
+		return domain.HistoryPage{}, errors.New("offline")
 	}
 	messages, nextCursor, hasMore, err := s.cache.History(peerPublicKey, cursor, int(limit), direction)
 	if err != nil {
-		return HistoryPage{}, err
+		return domain.HistoryPage{}, err
 	}
-	return HistoryPage{
+	return domain.HistoryPage{
 		Messages:   messagesFromCache(messages),
 		NextCursor: nextCursor,
 		HasMore:    hasMore,
 	}, nil
 }
 
-func (s *Service) cacheHistoryPage(peerPublicKey string, page rpcclient.HistoryPage) HistoryPage {
-	messages := messagesFromRPC(page.Messages)
+func (s *Service) cacheHistoryPage(peerPublicKey string, page domain.HistoryPage) domain.HistoryPage {
+	messages := page.Messages
 	if s.cache != nil {
 		_ = s.cache.SaveMessages(peerPublicKey, messagesToCache(peerPublicKey, messages))
 	}
-	return HistoryPage{
+	return domain.HistoryPage{
 		Messages:   messages,
 		NextCursor: page.NextCursor,
 		HasMore:    page.HasMore,

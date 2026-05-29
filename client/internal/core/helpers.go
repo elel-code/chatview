@@ -4,15 +4,17 @@ import (
 	"crypto/rand"
 	"slices"
 	"time"
+
+	"chatview/client/internal/domain"
 )
 
-func containsServerSeq(messages []Message, seq int64) bool {
-	return slices.ContainsFunc(messages, func(message Message) bool {
+func containsServerSeq(messages []domain.Message, seq int64) bool {
+	return slices.ContainsFunc(messages, func(message domain.Message) bool {
 		return message.ServerSeq == seq
 	})
 }
 
-func maxServerSeq(messages []Message) int64 {
+func maxServerSeq(messages []domain.Message) int64 {
 	var seq int64
 	for _, message := range messages {
 		seq = max(seq, message.ServerSeq)

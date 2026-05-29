@@ -28,12 +28,12 @@ func NewToken() string {
 func ParseEd25519PublicKey(pubKey string) (ed25519.PublicKey, error) {
 	pubKey = strings.TrimSpace(pubKey)
 	if pubKey == "" {
-		return nil, errors.New("empty pub_key")
+		return nil, errors.New("empty public_key")
 	}
 	for _, decode := range publicKeyDecoders {
 		if raw, err := decode(pubKey); err == nil && len(raw) == ed25519.PublicKeySize {
 			return ed25519.PublicKey(raw), nil
 		}
 	}
-	return nil, errors.New("invalid pub_key format")
+	return nil, errors.New("invalid public_key format")
 }

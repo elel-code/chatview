@@ -4,18 +4,19 @@ import (
 	"context"
 	"time"
 
+	"chatview/client/internal/domain"
 	"chatview/client/internal/storage"
 )
 
-func (s *Service) OutboxStatus() OutboxStatus {
+func (s *Service) OutboxStatus() domain.OutboxStatus {
 	if s.cache == nil {
-		return OutboxStatus{}
+		return domain.OutboxStatus{}
 	}
 	pending, failed, err := s.cache.OutboxStatus()
 	if err != nil {
-		return OutboxStatus{}
+		return domain.OutboxStatus{}
 	}
-	return OutboxStatus{Pending: pending, Failed: failed}
+	return domain.OutboxStatus{Pending: pending, Failed: failed}
 }
 
 func (s *Service) RetryFailedOutbox() error {

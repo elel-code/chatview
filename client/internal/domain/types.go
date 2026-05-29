@@ -1,4 +1,4 @@
-package core
+package domain
 
 type LoginResult struct {
 	PublicKey string `json:"publicKey"`
@@ -27,6 +27,12 @@ type HistoryPage struct {
 	Messages   []Message `json:"messages"`
 	NextCursor string    `json:"nextCursor"`
 	HasMore    bool      `json:"hasMore"`
+}
+
+type SendResult struct {
+	ID        string `json:"id"`
+	Timestamp string `json:"timestamp"`
+	ServerSeq int64  `json:"serverSeq"`
 }
 
 type Event struct {

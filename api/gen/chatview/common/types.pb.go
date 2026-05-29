@@ -180,8 +180,8 @@ func (MessageDelivery) EnumDescriptor() ([]byte, []int) {
 // 好友信息 — 对应 Friend 接口
 type FriendInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PubKey        string                 `protobuf:"bytes,1,opt,name=pub_key,json=pubKey,proto3" json:"pub_key,omitempty"` // Ed25519 公钥 (base64 或 hex)
-	Alias         string                 `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`                 // 别名/备注名
+	PublicKey     string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // Ed25519 公钥 (base64 或 hex)
+	Alias         string                 `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`                          // 别名/备注名
 	IsOnline      bool                   `protobuf:"varint,3,opt,name=is_online,json=isOnline,proto3" json:"is_online,omitempty"`
 	Unread        int32                  `protobuf:"varint,4,opt,name=unread,proto3" json:"unread,omitempty"` // 未读消息数
 	unknownFields protoimpl.UnknownFields
@@ -218,9 +218,9 @@ func (*FriendInfo) Descriptor() ([]byte, []int) {
 	return file_chatview_common_types_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *FriendInfo) GetPubKey() string {
+func (x *FriendInfo) GetPublicKey() string {
 	if x != nil {
-		return x.PubKey
+		return x.PublicKey
 	}
 	return ""
 }
@@ -249,7 +249,7 @@ func (x *FriendInfo) GetUnread() int32 {
 // 聊天消息 — 对应前端 ChatMessage 接口
 //
 // 客户端 UI 层应做 DTO 映射，避免直接把 protobuf 对象原样暴露给界面:
-//   - proto sender_pub_key (field 2)      → JS { sender }
+//   - proto sender_public_key (field 2)   → JS { sender }
 //   - proto delivery    (enum, field 5)   → JS { delivery: "incoming"|"pending"|"sent"|"failed" }
 //   - proto timestamp   (string, field 4) → JS { timestamp }  直接透传
 //   - proto id          (string, field 1) → JS { id }         直接透传
@@ -257,16 +257,16 @@ func (x *FriendInfo) GetUnread() int32 {
 //   - proto error       (string, field 6) → JS { error? }     直接透传
 //   - proto server_seq  (int64, field 10) 留在客户端缓存层；通常不作为聊天气泡字段展示
 type ChatMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                   // 服务端消息 ID
-	SenderPubKey  string                 `protobuf:"bytes,2,opt,name=sender_pub_key,json=senderPubKey,proto3" json:"sender_pub_key,omitempty"`         // 发送者公钥
-	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`                                               // 消息正文
-	Timestamp     string                 `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                                     // ISO 8601 时间戳
-	Delivery      MessageDelivery        `protobuf:"varint,5,opt,name=delivery,proto3,enum=chatview.common.MessageDelivery" json:"delivery,omitempty"` // 投递状态
-	Error         string                 `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`                                             // 失败原因（仅 delivery == FAILED 时有值）
-	ServerSeq     int64                  `protobuf:"varint,10,opt,name=server_seq,json=serverSeq,proto3" json:"server_seq,omitempty"`                  // 会话内单调递增序号（服务端事务内生成，用于客户端补洞检测）
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                    // 服务端消息 ID
+	SenderPublicKey string                 `protobuf:"bytes,2,opt,name=sender_public_key,json=senderPublicKey,proto3" json:"sender_public_key,omitempty"` // 发送者公钥
+	Text            string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`                                                // 消息正文
+	Timestamp       string                 `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                                      // ISO 8601 时间戳
+	Delivery        MessageDelivery        `protobuf:"varint,5,opt,name=delivery,proto3,enum=chatview.common.MessageDelivery" json:"delivery,omitempty"`  // 投递状态
+	Error           string                 `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`                                              // 失败原因（仅 delivery == FAILED 时有值）
+	ServerSeq       int64                  `protobuf:"varint,10,opt,name=server_seq,json=serverSeq,proto3" json:"server_seq,omitempty"`                   // 会话内单调递增序号（服务端事务内生成，用于客户端补洞检测）
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ChatMessage) Reset() {
@@ -306,9 +306,9 @@ func (x *ChatMessage) GetId() string {
 	return ""
 }
 
-func (x *ChatMessage) GetSenderPubKey() string {
+func (x *ChatMessage) GetSenderPublicKey() string {
 	if x != nil {
-		return x.SenderPubKey
+		return x.SenderPublicKey
 	}
 	return ""
 }
@@ -412,7 +412,7 @@ func (x *MessageHistoryPage) GetHasMore() bool {
 // 用户信息（管理员视角）— 对应 UserInfo 接口
 type UserInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PubKey        string                 `protobuf:"bytes,1,opt,name=pub_key,json=pubKey,proto3" json:"pub_key,omitempty"`
+	PublicKey     string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	IsOnline      bool                   `protobuf:"varint,2,opt,name=is_online,json=isOnline,proto3" json:"is_online,omitempty"`
 	IsBanned      bool                   `protobuf:"varint,3,opt,name=is_banned,json=isBanned,proto3" json:"is_banned,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -449,9 +449,9 @@ func (*UserInfo) Descriptor() ([]byte, []int) {
 	return file_chatview_common_types_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *UserInfo) GetPubKey() string {
+func (x *UserInfo) GetPublicKey() string {
 	if x != nil {
-		return x.PubKey
+		return x.PublicKey
 	}
 	return ""
 }
@@ -677,16 +677,17 @@ var File_chatview_common_types_proto protoreflect.FileDescriptor
 
 const file_chatview_common_types_proto_rawDesc = "" +
 	"\n" +
-	"\x1bchatview/common/types.proto\x12\x0fchatview.common\"p\n" +
+	"\x1bchatview/common/types.proto\x12\x0fchatview.common\"v\n" +
 	"\n" +
-	"FriendInfo\x12\x17\n" +
-	"\apub_key\x18\x01 \x01(\tR\x06pubKey\x12\x14\n" +
+	"FriendInfo\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1b\n" +
 	"\tis_online\x18\x03 \x01(\bR\bisOnline\x12\x16\n" +
-	"\x06unread\x18\x04 \x01(\x05R\x06unread\"\xe8\x01\n" +
+	"\x06unread\x18\x04 \x01(\x05R\x06unread\"\xee\x01\n" +
 	"\vChatMessage\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
-	"\x0esender_pub_key\x18\x02 \x01(\tR\fsenderPubKey\x12\x12\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12*\n" +
+	"\x11sender_public_key\x18\x02 \x01(\tR\x0fsenderPublicKey\x12\x12\n" +
 	"\x04text\x18\x03 \x01(\tR\x04text\x12\x1c\n" +
 	"\ttimestamp\x18\x04 \x01(\tR\ttimestamp\x12<\n" +
 	"\bdelivery\x18\x05 \x01(\x0e2 .chatview.common.MessageDeliveryR\bdelivery\x12\x14\n" +
@@ -698,9 +699,10 @@ const file_chatview_common_types_proto_rawDesc = "" +
 	"\bmessages\x18\x01 \x03(\v2\x1c.chatview.common.ChatMessageR\bmessages\x12\x1f\n" +
 	"\vnext_cursor\x18\x02 \x01(\tR\n" +
 	"nextCursor\x12\x19\n" +
-	"\bhas_more\x18\x03 \x01(\bR\ahasMore\"]\n" +
-	"\bUserInfo\x12\x17\n" +
-	"\apub_key\x18\x01 \x01(\tR\x06pubKey\x12\x1b\n" +
+	"\bhas_more\x18\x03 \x01(\bR\ahasMore\"c\n" +
+	"\bUserInfo\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey\x12\x1b\n" +
 	"\tis_online\x18\x02 \x01(\bR\bisOnline\x12\x1b\n" +
 	"\tis_banned\x18\x03 \x01(\bR\bisBanned\"s\n" +
 	"\n" +

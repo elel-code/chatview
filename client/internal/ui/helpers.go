@@ -5,14 +5,14 @@ import (
 	"slices"
 	"strings"
 
-	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-func messageDetail(message core.Message) string {
+func messageDetail(message domain.Message) string {
 	parts := make([]string, 0, 3)
 	if message.Timestamp != "" {
 		parts = append(parts, message.Timestamp)
@@ -26,8 +26,8 @@ func messageDetail(message core.Message) string {
 	return strings.Join(parts, "  ")
 }
 
-func sortMessages(messages []core.Message) {
-	slices.SortStableFunc(messages, func(left, right core.Message) int {
+func sortMessages(messages []domain.Message) {
+	slices.SortStableFunc(messages, func(left, right domain.Message) int {
 		if left.ServerSeq > 0 && right.ServerSeq > 0 && left.ServerSeq != right.ServerSeq {
 			return cmp.Compare(left.ServerSeq, right.ServerSeq)
 		}

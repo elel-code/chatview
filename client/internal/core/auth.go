@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"chatview/client/internal/domain"
 	"chatview/client/internal/identity"
 )
 
@@ -35,35 +36,35 @@ func (s *Service) ExportPrivateKey(pin string) (string, error) {
 	return s.identity.ExportPrivateKey(pin)
 }
 
-func (s *Service) Login(ctx context.Context, pin string) (LoginResult, error) {
+func (s *Service) Login(ctx context.Context, pin string) (domain.LoginResult, error) {
 	if s.isLocked() {
-		return LoginResult{}, errors.New("too many attempts")
+		return domain.LoginResult{}, errors.New("too many attempts")
 	}
 	keypair, err := s.identity.Load(pin)
 	if err != nil {
 		s.recordBadPIN()
-		return LoginResult{}, err
+		return domain.LoginResult{}, err
 	}
 	result, err := s.rpc.Login(ctx, keypair.PublicHex, func(challenge []byte) []byte {
 		return ed25519.Sign(keypair.Private, challenge)
 	})
 	if err != nil {
 		if !isOfflineLoginError(err) {
-			return LoginResult{}, err
+			return domain.LoginResult{}, err
 		}
 		if err := s.setCacheOwner(keypair.PublicHex); err != nil {
-			return LoginResult{}, err
+			return domain.LoginResult{}, err
 		}
 		s.resetLockout()
 		s.setSession(keypair.PublicHex, 0, true)
-		return LoginResult{PublicKey: keypair.PublicHex, Role: 0, Offline: true}, nil
+		return domain.LoginResult{PublicKey: keypair.PublicHex, Role: 0, Offline: true}, nil
 	}
 	if err := s.setCacheOwner(result.PublicKey); err != nil {
-		return LoginResult{}, err
+		return domain.LoginResult{}, err
 	}
 	s.resetLockout()
 	s.setSession(result.PublicKey, result.Role, false)
-	return LoginResult{PublicKey: result.PublicKey, Role: result.Role}, nil
+	return domain.LoginResult{PublicKey: result.PublicKey, Role: result.Role}, nil
 }
 
 func (s *Service) Logout() {
@@ -75,7 +76,7 @@ func (s *Service) Logout() {
 	s.setSession("", 0, false)
 }
 
-func (s *Service) AuthLockState() AuthLockState {
+func (s *Service) AuthLockState() domain.AuthLockState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
@@ -83,7 +84,7 @@ func (s *Service) AuthLockState() AuthLockState {
 		s.lockedUntil = time.Time{}
 		s.remainingAttempts = 5
 	}
-	state := AuthLockState{RemainingAttempts: s.remainingAttempts}
+	state := domain.AuthLockState{RemainingAttempts: s.remainingAttempts}
 	if !s.lockedUntil.IsZero() {
 		state.LockedUntil = s.lockedUntil.UTC().Format(time.RFC3339)
 	}

@@ -23,11 +23,11 @@ const (
 )
 
 type SetUserStatusReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TargetPubKey  string                 `protobuf:"bytes,1,opt,name=target_pub_key,json=targetPubKey,proto3" json:"target_pub_key,omitempty"` // 目标用户公钥
-	Status        common.UserStatus      `protobuf:"varint,2,opt,name=status,proto3,enum=chatview.common.UserStatus" json:"status,omitempty"`  // USER_STATUS_ACTIVE 或 USER_STATUS_BANNED
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TargetPublicKey string                 `protobuf:"bytes,1,opt,name=target_public_key,json=targetPublicKey,proto3" json:"target_public_key,omitempty"` // 目标用户公钥
+	Status          common.UserStatus      `protobuf:"varint,2,opt,name=status,proto3,enum=chatview.common.UserStatus" json:"status,omitempty"`           // USER_STATUS_ACTIVE 或 USER_STATUS_BANNED
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SetUserStatusReq) Reset() {
@@ -60,9 +60,9 @@ func (*SetUserStatusReq) Descriptor() ([]byte, []int) {
 	return file_chatview_admin_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *SetUserStatusReq) GetTargetPubKey() string {
+func (x *SetUserStatusReq) GetTargetPublicKey() string {
 	if x != nil {
-		return x.TargetPubKey
+		return x.TargetPublicKey
 	}
 	return ""
 }
@@ -276,9 +276,9 @@ var File_chatview_admin_proto protoreflect.FileDescriptor
 
 const file_chatview_admin_proto_rawDesc = "" +
 	"\n" +
-	"\x14chatview/admin.proto\x12\x0echatview.admin\x1a\x1bchatview/common/types.proto\"m\n" +
-	"\x10SetUserStatusReq\x12$\n" +
-	"\x0etarget_pub_key\x18\x01 \x01(\tR\ftargetPubKey\x123\n" +
+	"\x14chatview/admin.proto\x12\x0echatview.admin\x1a\x1bchatview/common/types.proto\"s\n" +
+	"\x10SetUserStatusReq\x12*\n" +
+	"\x11target_public_key\x18\x01 \x01(\tR\x0ftargetPublicKey\x123\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x1b.chatview.common.UserStatusR\x06status\"\x13\n" +
 	"\x11SetUserStatusResp\"\"\n" +
 	"\fBroadcastReq\x12\x12\n" +

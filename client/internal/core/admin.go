@@ -5,32 +5,18 @@ import (
 	"errors"
 	"strings"
 
-	"chatview/client/internal/rpcclient"
+	"chatview/client/internal/domain"
 )
 
-func (s *Service) PollAdminEvents(ctx context.Context) (AdminUpdate, error) {
+func (s *Service) PollAdminEvents(ctx context.Context) (domain.AdminUpdate, error) {
 	if s.IsOffline() {
-		return AdminUpdate{}, errors.New("offline")
+		return domain.AdminUpdate{}, errors.New("offline")
 	}
 	update, err := s.rpc.PollAdminEvents(ctx)
 	if err != nil {
-		return AdminUpdate{}, err
+		return domain.AdminUpdate{}, err
 	}
-	users := mapSlice(update.Users, func(user rpcclient.UserInfo) UserInfo {
-		return UserInfo{
-			PublicKey: user.PublicKey,
-			Online:    user.Online,
-			Banned:    user.Banned,
-		}
-	})
-	return AdminUpdate{
-		Users: users,
-		Stats: AdminStats{
-			OnlineUsers: update.Stats.OnlineUsers,
-			TotalUsers:  update.Stats.TotalUsers,
-			BannedUsers: update.Stats.BannedUsers,
-		},
-	}, nil
+	return update, nil
 }
 
 func (s *Service) SetUserStatus(ctx context.Context, publicKey string, banned bool) error {

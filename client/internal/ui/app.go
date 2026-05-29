@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -16,10 +17,10 @@ type Application struct {
 	app     fyne.App
 	window  fyne.Window
 
-	friends         []core.Friend
-	messages        []core.Message
-	adminUsers      []core.UserInfo
-	selectedFriend  *core.Friend
+	friends         []domain.Friend
+	messages        []domain.Message
+	adminUsers      []domain.UserInfo
+	selectedFriend  *domain.Friend
 	publicKey       string
 	offline         bool
 	historyCursor   string
@@ -33,7 +34,7 @@ type Application struct {
 	refreshing      bool
 	refreshingAdmin bool
 	syncingUnread   bool
-	lastOutbox      core.OutboxStatus
+	lastOutbox      domain.OutboxStatus
 
 	status       *widget.Label
 	friendList   *widget.List

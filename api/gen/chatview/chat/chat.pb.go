@@ -103,10 +103,10 @@ func (x *ListFriendsResp) GetFriends() []*common.FriendInfo {
 }
 
 type AddFriendReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TargetPubKey  string                 `protobuf:"bytes,1,opt,name=target_pub_key,json=targetPubKey,proto3" json:"target_pub_key,omitempty"` // 要添加的目标用户公钥
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TargetPublicKey string                 `protobuf:"bytes,1,opt,name=target_public_key,json=targetPublicKey,proto3" json:"target_public_key,omitempty"` // 要添加的目标用户公钥
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *AddFriendReq) Reset() {
@@ -139,9 +139,9 @@ func (*AddFriendReq) Descriptor() ([]byte, []int) {
 	return file_chatview_chat_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *AddFriendReq) GetTargetPubKey() string {
+func (x *AddFriendReq) GetTargetPublicKey() string {
 	if x != nil {
-		return x.TargetPubKey
+		return x.TargetPublicKey
 	}
 	return ""
 }
@@ -183,12 +183,12 @@ func (*AddFriendResp) Descriptor() ([]byte, []int) {
 }
 
 type SendMessageReq struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	ReceiverPubKey  string                 `protobuf:"bytes,1,opt,name=receiver_pub_key,json=receiverPubKey,proto3" json:"receiver_pub_key,omitempty"`    // 接收者公钥
-	Text            string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`                                                // 消息正文
-	ClientMessageId string                 `protobuf:"bytes,3,opt,name=client_message_id,json=clientMessageId,proto3" json:"client_message_id,omitempty"` // 客户端本地消息 ID；同一发送者内作为幂等键，重试返回同一服务端消息
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ReceiverPublicKey string                 `protobuf:"bytes,1,opt,name=receiver_public_key,json=receiverPublicKey,proto3" json:"receiver_public_key,omitempty"` // 接收者公钥
+	Text              string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`                                                      // 消息正文
+	ClientMessageId   string                 `protobuf:"bytes,3,opt,name=client_message_id,json=clientMessageId,proto3" json:"client_message_id,omitempty"`       // 客户端本地消息 ID；同一发送者内作为幂等键，重试返回同一服务端消息
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *SendMessageReq) Reset() {
@@ -221,9 +221,9 @@ func (*SendMessageReq) Descriptor() ([]byte, []int) {
 	return file_chatview_chat_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *SendMessageReq) GetReceiverPubKey() string {
+func (x *SendMessageReq) GetReceiverPublicKey() string {
 	if x != nil {
-		return x.ReceiverPubKey
+		return x.ReceiverPublicKey
 	}
 	return ""
 }
@@ -312,10 +312,10 @@ func (x *SendMessageResp) GetDeduplicated() bool {
 
 type GetMessageHistoryReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PeerPubKey    string                 `protobuf:"bytes,1,opt,name=peer_pub_key,json=peerPubKey,proto3" json:"peer_pub_key,omitempty"` // 聊天对象的公钥
-	Cursor        string                 `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`                             // 分页游标：server_seq 值；older 时取更早，newer 时取更新
-	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                              // 每页数量；默认 30，最大 100
-	Direction     string                 `protobuf:"bytes,4,opt,name=direction,proto3" json:"direction,omitempty"`                       // "older" 或 "newer"；为空默认 "older"
+	PeerPublicKey string                 `protobuf:"bytes,1,opt,name=peer_public_key,json=peerPublicKey,proto3" json:"peer_public_key,omitempty"` // 聊天对象的公钥
+	Cursor        string                 `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`                                      // 分页游标：server_seq 值；older 时取更早，newer 时取更新
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                                       // 每页数量；默认 30，最大 100
+	Direction     string                 `protobuf:"bytes,4,opt,name=direction,proto3" json:"direction,omitempty"`                                // "older" 或 "newer"；为空默认 "older"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -350,9 +350,9 @@ func (*GetMessageHistoryReq) Descriptor() ([]byte, []int) {
 	return file_chatview_chat_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GetMessageHistoryReq) GetPeerPubKey() string {
+func (x *GetMessageHistoryReq) GetPeerPublicKey() string {
 	if x != nil {
-		return x.PeerPubKey
+		return x.PeerPublicKey
 	}
 	return ""
 }
@@ -424,7 +424,7 @@ func (x *GetMessageHistoryResp) GetPage() *common.MessageHistoryPage {
 
 type MarkConversationReadReq struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	PeerPubKey        string                 `protobuf:"bytes,1,opt,name=peer_pub_key,json=peerPubKey,proto3" json:"peer_pub_key,omitempty"`                         // 聊天对象的公钥
+	PeerPublicKey     string                 `protobuf:"bytes,1,opt,name=peer_public_key,json=peerPublicKey,proto3" json:"peer_public_key,omitempty"`                // 聊天对象的公钥
 	LastReadServerSeq int64                  `protobuf:"varint,2,opt,name=last_read_server_seq,json=lastReadServerSeq,proto3" json:"last_read_server_seq,omitempty"` // 已读到的 server_seq；<=0 时服务端标记到当前最新消息
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -460,9 +460,9 @@ func (*MarkConversationReadReq) Descriptor() ([]byte, []int) {
 	return file_chatview_chat_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *MarkConversationReadReq) GetPeerPubKey() string {
+func (x *MarkConversationReadReq) GetPeerPublicKey() string {
 	if x != nil {
-		return x.PeerPubKey
+		return x.PeerPublicKey
 	}
 	return ""
 }
@@ -517,12 +517,12 @@ const file_chatview_chat_proto_rawDesc = "" +
 	"\x13chatview/chat.proto\x12\rchatview.chat\x1a\x1bchatview/common/types.proto\"\x10\n" +
 	"\x0eListFriendsReq\"H\n" +
 	"\x0fListFriendsResp\x125\n" +
-	"\afriends\x18\x01 \x03(\v2\x1b.chatview.common.FriendInfoR\afriends\"4\n" +
-	"\fAddFriendReq\x12$\n" +
-	"\x0etarget_pub_key\x18\x01 \x01(\tR\ftargetPubKey\"\x0f\n" +
-	"\rAddFriendResp\"z\n" +
-	"\x0eSendMessageReq\x12(\n" +
-	"\x10receiver_pub_key\x18\x01 \x01(\tR\x0ereceiverPubKey\x12\x12\n" +
+	"\afriends\x18\x01 \x03(\v2\x1b.chatview.common.FriendInfoR\afriends\":\n" +
+	"\fAddFriendReq\x12*\n" +
+	"\x11target_public_key\x18\x01 \x01(\tR\x0ftargetPublicKey\"\x0f\n" +
+	"\rAddFriendResp\"\x80\x01\n" +
+	"\x0eSendMessageReq\x12.\n" +
+	"\x13receiver_public_key\x18\x01 \x01(\tR\x11receiverPublicKey\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\x12*\n" +
 	"\x11client_message_id\x18\x03 \x01(\tR\x0fclientMessageId\"\x91\x01\n" +
 	"\x0fSendMessageResp\x12\x1d\n" +
@@ -531,18 +531,16 @@ const file_chatview_chat_proto_rawDesc = "" +
 	"\ttimestamp\x18\x02 \x01(\tR\ttimestamp\x12\x1d\n" +
 	"\n" +
 	"server_seq\x18\x03 \x01(\x03R\tserverSeq\x12\"\n" +
-	"\fdeduplicated\x18\x04 \x01(\bR\fdeduplicated\"\x84\x01\n" +
-	"\x14GetMessageHistoryReq\x12 \n" +
-	"\fpeer_pub_key\x18\x01 \x01(\tR\n" +
-	"peerPubKey\x12\x16\n" +
+	"\fdeduplicated\x18\x04 \x01(\bR\fdeduplicated\"\x8a\x01\n" +
+	"\x14GetMessageHistoryReq\x12&\n" +
+	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x1c\n" +
 	"\tdirection\x18\x04 \x01(\tR\tdirection\"P\n" +
 	"\x15GetMessageHistoryResp\x127\n" +
-	"\x04page\x18\x01 \x01(\v2#.chatview.common.MessageHistoryPageR\x04page\"l\n" +
-	"\x17MarkConversationReadReq\x12 \n" +
-	"\fpeer_pub_key\x18\x01 \x01(\tR\n" +
-	"peerPubKey\x12/\n" +
+	"\x04page\x18\x01 \x01(\v2#.chatview.common.MessageHistoryPageR\x04page\"r\n" +
+	"\x17MarkConversationReadReq\x12&\n" +
+	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12/\n" +
 	"\x14last_read_server_seq\x18\x02 \x01(\x03R\x11lastReadServerSeq\"\x1a\n" +
 	"\x18MarkConversationReadResp2\xba\x03\n" +
 	"\vChatService\x12L\n" +

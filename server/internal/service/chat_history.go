@@ -17,17 +17,17 @@ import (
 )
 
 type messageRow struct {
-	ID           string    `db:"id"`
-	SenderPubKey string    `db:"sender_pub_key"`
-	Text         string    `db:"text"`
-	Timestamp    time.Time `db:"timestamp"`
-	ServerSeq    int64     `db:"server_seq"`
+	ID              string    `db:"id"`
+	SenderPublicKey string    `db:"sender_pub_key"`
+	Text            string    `db:"text"`
+	Timestamp       time.Time `db:"timestamp"`
+	ServerSeq       int64     `db:"server_seq"`
 }
 
 func (s *ChatService) GetMessageHistory(ctx context.Context, req *chatpb.GetMessageHistoryReq) (*chatpb.GetMessageHistoryResp, error) {
-	pubKey := contextx.PubKey(ctx)
+	pubKey := contextx.PublicKey(ctx)
 	limit := messageHistoryLimit(req.GetLimit())
-	convID, err := db.LookupConversation(ctx, s.Store.DB, pubKey, req.GetPeerPubKey())
+	convID, err := db.LookupConversation(ctx, s.Store.DB, pubKey, req.GetPeerPublicKey())
 	if err != nil {
 		if db.IsNotFound(err) {
 			return &chatpb.GetMessageHistoryResp{Page: &commonpb.MessageHistoryPage{}}, nil
@@ -56,16 +56,16 @@ func (s *ChatService) GetMessageHistory(ctx context.Context, req *chatpb.GetMess
 	page := &commonpb.MessageHistoryPage{Messages: make([]*commonpb.ChatMessage, 0, len(rows)), HasMore: hasMore}
 	for _, row := range rows {
 		delivery := commonpb.MessageDelivery_MESSAGE_DELIVERY_SENT
-		if row.SenderPubKey != pubKey {
+		if row.SenderPublicKey != pubKey {
 			delivery = commonpb.MessageDelivery_MESSAGE_DELIVERY_INCOMING
 		}
 		page.Messages = append(page.Messages, &commonpb.ChatMessage{
-			Id:           row.ID,
-			SenderPubKey: row.SenderPubKey,
-			Text:         row.Text,
-			Timestamp:    row.Timestamp.UTC().Format(time.RFC3339Nano),
-			Delivery:     delivery,
-			ServerSeq:    row.ServerSeq,
+			Id:              row.ID,
+			SenderPublicKey: row.SenderPublicKey,
+			Text:            row.Text,
+			Timestamp:       row.Timestamp.UTC().Format(time.RFC3339Nano),
+			Delivery:        delivery,
+			ServerSeq:       row.ServerSeq,
 		})
 	}
 	if hasMore && len(rows) > 0 {

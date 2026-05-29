@@ -12,11 +12,11 @@ import (
 )
 
 func TestNewSendMessageInputTrimsAndValidates(t *testing.T) {
-	ctx := contextx.WithPrincipal(context.Background(), contextx.Principal{PubKey: "sender"})
+	ctx := contextx.WithPrincipal(context.Background(), contextx.Principal{PublicKey: "sender"})
 	input, err := newSendMessageInput(ctx, &chatpb.SendMessageReq{
-		ReceiverPubKey:  " receiver ",
-		Text:            " hello ",
-		ClientMessageId: " client-1 ",
+		ReceiverPublicKey: " receiver ",
+		Text:              " hello ",
+		ClientMessageId:   " client-1 ",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -27,11 +27,11 @@ func TestNewSendMessageInputTrimsAndValidates(t *testing.T) {
 }
 
 func TestNewSendMessageInputRejectsInvalidRequests(t *testing.T) {
-	ctx := contextx.WithPrincipal(context.Background(), contextx.Principal{PubKey: "sender"})
+	ctx := contextx.WithPrincipal(context.Background(), contextx.Principal{PublicKey: "sender"})
 	tests := map[string]*chatpb.SendMessageReq{
 		"missing receiver": {},
-		"self receiver":    {ReceiverPubKey: "sender", Text: "hello"},
-		"empty text":       {ReceiverPubKey: "receiver", Text: " "},
+		"self receiver":    {ReceiverPublicKey: "sender", Text: "hello"},
+		"empty text":       {ReceiverPublicKey: "receiver", Text: " "},
 	}
 	for name, req := range tests {
 		t.Run(name, func(t *testing.T) {

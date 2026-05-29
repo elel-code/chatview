@@ -127,7 +127,7 @@ func (s *Store) RunCleanup(ctx context.Context, interval time.Duration) {
 
 func NormalizeParticipants(a, b string) (string, string, error) {
 	if a == "" || b == "" {
-		return "", "", errors.New("pub_key is required")
+		return "", "", errors.New("public key is required")
 	}
 	if a == b {
 		return "", "", errors.New("cannot chat with self")

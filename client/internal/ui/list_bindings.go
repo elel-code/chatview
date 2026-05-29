@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image/color"
 
-	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
@@ -98,14 +98,14 @@ func (a *Application) bindAdminListItem(id widget.ListItemID, item fyne.CanvasOb
 	}
 }
 
-func friendDisplayName(friend core.Friend) string {
+func friendDisplayName(friend domain.Friend) string {
 	if friend.Alias != "" {
 		return friend.Alias
 	}
 	return shortKey(friend.PublicKey)
 }
 
-func friendPresenceDetail(friend core.Friend) string {
+func friendPresenceDetail(friend domain.Friend) string {
 	status := "offline"
 	if friend.Online {
 		status = "online"
@@ -113,7 +113,7 @@ func friendPresenceDetail(friend core.Friend) string {
 	return status + "  " + shortKey(friend.PublicKey)
 }
 
-func adminUserState(user core.UserInfo) (string, color.Color) {
+func adminUserState(user domain.UserInfo) (string, color.Color) {
 	if user.Banned {
 		return "banned", errorColor
 	}

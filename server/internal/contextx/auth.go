@@ -5,9 +5,9 @@ import "context"
 type authContextKey struct{}
 
 type Principal struct {
-	PubKey string `db:"pub_key"`
-	Role   int32  `db:"role"`
-	Token  string `db:"token"`
+	PublicKey string `db:"pub_key"`
+	Role      int32  `db:"role"`
+	Token     string `db:"token"`
 }
 
 func WithPrincipal(ctx context.Context, principal Principal) context.Context {
@@ -19,7 +19,7 @@ func PrincipalFrom(ctx context.Context) (Principal, bool) {
 	return principal, ok
 }
 
-func PubKey(ctx context.Context) string {
+func PublicKey(ctx context.Context) string {
 	principal, _ := PrincipalFrom(ctx)
-	return principal.PubKey
+	return principal.PublicKey
 }

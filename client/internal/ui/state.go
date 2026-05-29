@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -12,7 +12,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func (a *Application) upsertMessage(message core.Message) {
+func (a *Application) upsertMessage(message domain.Message) {
 	for i := range a.messages {
 		if a.messages[i].ID == message.ID {
 			a.messages[i] = message
@@ -22,7 +22,7 @@ func (a *Application) upsertMessage(message core.Message) {
 	a.messages = append(a.messages, message)
 }
 
-func (a *Application) mergeMessages(messages []core.Message) int {
+func (a *Application) mergeMessages(messages []domain.Message) int {
 	added := 0
 	for _, message := range messages {
 		before := len(a.messages)
@@ -60,7 +60,7 @@ func (a *Application) resetSessionState() {
 	a.refreshing = false
 	a.refreshingAdmin = false
 	a.syncingUnread = false
-	a.lastOutbox = core.OutboxStatus{}
+	a.lastOutbox = domain.OutboxStatus{}
 }
 
 func (a *Application) startSessionContext() {

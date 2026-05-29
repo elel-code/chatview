@@ -20,7 +20,7 @@ option cc_enable_arenas = true;
 // ── 用户管理 ─────────────────────────────────
 
 message SetUserStatusReq {
-  string                    target_pub_key = 1;  // 目标用户公钥
+  string                    target_public_key = 1;  // 目标用户公钥
   chatview.common.UserStatus status        = 2;  // USER_STATUS_ACTIVE 或 USER_STATUS_BANNED
 }
 

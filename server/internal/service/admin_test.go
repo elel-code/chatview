@@ -19,7 +19,7 @@ func TestBroadcastValidatesTextAndPublishesEvent(t *testing.T) {
 	hub.Register("user", "client", events)
 
 	service := &AdminService{Hub: hub}
-	ctx := contextx.WithPrincipal(context.Background(), contextx.Principal{PubKey: "admin"})
+	ctx := contextx.WithPrincipal(context.Background(), contextx.Principal{PublicKey: "admin"})
 	if _, err := service.Broadcast(ctx, &adminpb.BroadcastReq{}); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("empty broadcast code = %s, want %s", status.Code(err), codes.InvalidArgument)
 	}

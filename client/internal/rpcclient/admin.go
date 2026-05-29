@@ -5,30 +5,31 @@ import (
 
 	adminpb "chatview/api/gen/chatview/admin"
 	commonpb "chatview/api/gen/chatview/common"
+	"chatview/client/internal/domain"
 )
 
-func (c *Client) PollAdminEvents(ctx context.Context) (AdminUpdate, error) {
+func (c *Client) PollAdminEvents(ctx context.Context) (domain.AdminUpdate, error) {
 	ctx, cancel := withTimeout(c.authContext(ctx))
 	defer cancel()
 
 	resp, err := c.admin.PollAdminEvents(ctx, &adminpb.PollAdminEventsReq{})
 	if err != nil {
-		return AdminUpdate{}, rpcError(err)
+		return domain.AdminUpdate{}, rpcError(err)
 	}
 	if resp.Update == nil {
-		return AdminUpdate{}, nil
+		return domain.AdminUpdate{}, nil
 	}
-	update := AdminUpdate{}
+	update := domain.AdminUpdate{}
 	if resp.Update.Stats != nil {
-		update.Stats = AdminStats{
+		update.Stats = domain.AdminStats{
 			OnlineUsers: resp.Update.Stats.OnlineUsers,
 			TotalUsers:  resp.Update.Stats.TotalUsers,
 			BannedUsers: resp.Update.Stats.BannedUsers,
 		}
 	}
-	update.Users = mapSlice(resp.Update.Users, func(user *commonpb.UserInfo) UserInfo {
-		return UserInfo{
-			PublicKey: user.PubKey,
+	update.Users = mapSlice(resp.Update.Users, func(user *commonpb.UserInfo) domain.UserInfo {
+		return domain.UserInfo{
+			PublicKey: user.PublicKey,
 			Online:    user.IsOnline,
 			Banned:    user.IsBanned,
 		}
@@ -45,8 +46,8 @@ func (c *Client) SetUserStatus(ctx context.Context, publicKey string, banned boo
 		statusValue = commonpb.UserStatus_USER_STATUS_BANNED
 	}
 	_, err := c.admin.SetUserStatus(ctx, &adminpb.SetUserStatusReq{
-		TargetPubKey: publicKey,
-		Status:       statusValue,
+		TargetPublicKey: publicKey,
+		Status:          statusValue,
 	})
 	return rpcError(err)
 }

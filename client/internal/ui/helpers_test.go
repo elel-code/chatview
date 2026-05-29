@@ -4,11 +4,11 @@ import (
 	"slices"
 	"testing"
 
-	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 )
 
 func TestMessageDetailSkipsEmptyParts(t *testing.T) {
-	message := core.Message{
+	message := domain.Message{
 		Timestamp: "2026-05-29T00:00:00Z",
 		Delivery:  "sent",
 		Error:     "retrying",
@@ -16,13 +16,13 @@ func TestMessageDetailSkipsEmptyParts(t *testing.T) {
 	if got := messageDetail(message); got != "2026-05-29T00:00:00Z  sent  retrying" {
 		t.Fatalf("messageDetail full = %q", got)
 	}
-	if got := messageDetail(core.Message{Delivery: "incoming"}); got != "incoming" {
+	if got := messageDetail(domain.Message{Delivery: "incoming"}); got != "incoming" {
 		t.Fatalf("messageDetail partial = %q", got)
 	}
 }
 
 func TestSortMessagesPrefersServerSeqThenTimestampThenID(t *testing.T) {
-	messages := []core.Message{
+	messages := []domain.Message{
 		{ID: "z", Timestamp: "2026-05-29T00:00:03Z", ServerSeq: 0},
 		{ID: "c", Timestamp: "2026-05-29T00:00:02Z", ServerSeq: 2},
 		{ID: "b", Timestamp: "2026-05-29T00:00:01Z", ServerSeq: 1},

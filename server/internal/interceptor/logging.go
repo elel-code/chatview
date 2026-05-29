@@ -36,8 +36,8 @@ func logRPC(ctx context.Context, logger *slog.Logger, method string, elapsed tim
 		"duration_ms", elapsed.Milliseconds(),
 		"code", status.Code(err).String(),
 	}
-	if principal.PubKey != "" {
-		attrs = append(attrs, "pub_key", principal.PubKey)
+	if principal.PublicKey != "" {
+		attrs = append(attrs, "public_key", principal.PublicKey)
 	}
 	if err != nil {
 		attrs = append(attrs, "error", err)

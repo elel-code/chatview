@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/widget"
@@ -84,7 +84,7 @@ func (a *Application) stopEvents() {
 	}
 }
 
-func (a *Application) handleEvent(event core.Event) {
+func (a *Application) handleEvent(event domain.Event) {
 	fyne.Do(func() {
 		switch event.Kind {
 		case "new_message":

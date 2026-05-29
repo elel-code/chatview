@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"chatview/client/internal/core"
+	"chatview/client/internal/domain"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
@@ -21,7 +21,7 @@ func (a *Application) refreshOutboxStatus() {
 	a.setOutboxStatus(status)
 }
 
-func (a *Application) setOutboxStatus(status core.OutboxStatus) {
+func (a *Application) setOutboxStatus(status domain.OutboxStatus) {
 	if a.outboxLabel == nil {
 		return
 	}

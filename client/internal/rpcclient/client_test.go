@@ -176,25 +176,25 @@ func startFakeGRPCServer(t *testing.T, fake *fakeChatViewServer) (string, func()
 
 func (s *fakeChatViewServer) RequestChallenge(_ context.Context, req *authpb.RequestChallengeReq) (*authpb.RequestChallengeResp, error) {
 	s.mu.Lock()
-	s.requestChallengePublicKey = req.PubKey
+	s.requestChallengePublicKey = req.PublicKey
 	s.mu.Unlock()
 	return &authpb.RequestChallengeResp{Challenge: s.challenge}, nil
 }
 
 func (s *fakeChatViewServer) Login(_ context.Context, req *authpb.LoginReq) (*authpb.LoginResp, error) {
-	publicKey, err := hex.DecodeString(req.PubKey)
+	publicKey, err := hex.DecodeString(req.PublicKey)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid public key")
 	}
 	signatureOK := ed25519.Verify(ed25519.PublicKey(publicKey), s.challenge, req.ChallengeSignature)
 	s.mu.Lock()
-	s.loginPublicKey = req.PubKey
+	s.loginPublicKey = req.PublicKey
 	s.loginSignatureOK = signatureOK
 	s.mu.Unlock()
 	if !signatureOK {
 		return nil, status.Error(codes.PermissionDenied, "bad signature")
 	}
-	return &authpb.LoginResp{SessionToken: s.token, Role: 1, PubKey: req.PubKey}, nil
+	return &authpb.LoginResp{SessionToken: s.token, Role: 1, PublicKey: req.PublicKey}, nil
 }
 
 func (s *fakeChatViewServer) ListFriends(ctx context.Context, _ *chatpb.ListFriendsReq) (*chatpb.ListFriendsResp, error) {
@@ -202,10 +202,10 @@ func (s *fakeChatViewServer) ListFriends(ctx context.Context, _ *chatpb.ListFrie
 		return nil, err
 	}
 	return &chatpb.ListFriendsResp{Friends: []*commonpb.FriendInfo{{
-		PubKey:   "peer-a",
-		Alias:    "Peer A",
-		IsOnline: true,
-		Unread:   3,
+		PublicKey: "peer-a",
+		Alias:     "Peer A",
+		IsOnline:  true,
+		Unread:    3,
 	}}}, nil
 }
 
@@ -236,12 +236,12 @@ func (s *fakeChatViewServer) GetMessageHistory(ctx context.Context, _ *chatpb.Ge
 	}
 	return &chatpb.GetMessageHistoryResp{Page: &commonpb.MessageHistoryPage{
 		Messages: []*commonpb.ChatMessage{{
-			Id:           "server-0",
-			SenderPubKey: "peer-a",
-			Text:         "hi",
-			Timestamp:    "2026-05-15T00:00:00Z",
-			Delivery:     commonpb.MessageDelivery_MESSAGE_DELIVERY_INCOMING,
-			ServerSeq:    10,
+			Id:              "server-0",
+			SenderPublicKey: "peer-a",
+			Text:            "hi",
+			Timestamp:       "2026-05-15T00:00:00Z",
+			Delivery:        commonpb.MessageDelivery_MESSAGE_DELIVERY_INCOMING,
+			ServerSeq:       10,
 		}},
 		NextCursor: "10",
 		HasMore:    true,
@@ -284,9 +284,9 @@ func (s *fakeChatViewServer) PollAdminEvents(ctx context.Context, _ *adminpb.Pol
 	}
 	return &adminpb.PollAdminEventsResp{Update: &commonpb.AdminUpdate{
 		Users: []*commonpb.UserInfo{{
-			PubKey:   "peer-a",
-			IsOnline: false,
-			IsBanned: true,
+			PublicKey: "peer-a",
+			IsOnline:  false,
+			IsBanned:  true,
 		}},
 		Stats: &commonpb.AdminStats{
 			OnlineUsers: 1,
@@ -304,7 +304,7 @@ func (s *fakeChatViewServer) Subscribe(req *eventspb.SubscribeReq, stream grpc.S
 		return err
 	}
 	if err := stream.Send(&eventspb.ServerEvent{Event: &eventspb.ServerEvent_NewMessage{
-		NewMessage: &eventspb.NewMessageEvent{FromPubKey: "peer-a", Count: 1},
+		NewMessage: &eventspb.NewMessageEvent{FromPublicKey: "peer-a", Count: 1},
 	}}); err != nil {
 		return err
 	}

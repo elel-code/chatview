@@ -68,14 +68,14 @@ func (x *SubscribeReq) GetClientId() string {
 
 // 新消息通知 — 对应 messages-pending
 //
-// gRPC 流携带完整事件；桌面客户端可以用 from_pub_key 定位需要刷新的会话。
+// gRPC 流携带完整事件；桌面客户端可以用 from_public_key 定位需要刷新的会话。
 // count 字段供客户端优化积压消息拉取策略，不要求 UI 直接展示。
 //
 // 前端收到后调用 ChatService.GetMessageHistory（direction=newer）拉取实际消息内容。
 type NewMessageEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	FromPubKey    string                 `protobuf:"bytes,1,opt,name=from_pub_key,json=fromPubKey,proto3" json:"from_pub_key,omitempty"` // 发来新消息的好友公钥
-	Count         int32                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`                              // 待拉取消息数（客户端优化用）
+	FromPublicKey string                 `protobuf:"bytes,1,opt,name=from_public_key,json=fromPublicKey,proto3" json:"from_public_key,omitempty"` // 发来新消息的好友公钥
+	Count         int32                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`                                       // 待拉取消息数（客户端优化用）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -110,9 +110,9 @@ func (*NewMessageEvent) Descriptor() ([]byte, []int) {
 	return file_chatview_events_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *NewMessageEvent) GetFromPubKey() string {
+func (x *NewMessageEvent) GetFromPublicKey() string {
 	if x != nil {
-		return x.FromPubKey
+		return x.FromPublicKey
 	}
 	return ""
 }
@@ -128,9 +128,9 @@ func (x *NewMessageEvent) GetCount() int32 {
 // 对应前端 FriendStatusEvent 接口
 type FriendStatusEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PubKey        string                 `protobuf:"bytes,1,opt,name=pub_key,json=pubKey,proto3" json:"pub_key,omitempty"`        // 好友公钥
-	Alias         string                 `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`                        // 别名（可选）
-	IsOnline      bool                   `protobuf:"varint,3,opt,name=is_online,json=isOnline,proto3" json:"is_online,omitempty"` // 当前在线状态
+	PublicKey     string                 `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"` // 好友公钥
+	Alias         string                 `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`                          // 别名（可选）
+	IsOnline      bool                   `protobuf:"varint,3,opt,name=is_online,json=isOnline,proto3" json:"is_online,omitempty"`   // 当前在线状态
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -165,9 +165,9 @@ func (*FriendStatusEvent) Descriptor() ([]byte, []int) {
 	return file_chatview_events_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *FriendStatusEvent) GetPubKey() string {
+func (x *FriendStatusEvent) GetPublicKey() string {
 	if x != nil {
-		return x.PubKey
+		return x.PublicKey
 	}
 	return ""
 }
@@ -460,13 +460,13 @@ const file_chatview_events_proto_rawDesc = "" +
 	"\n" +
 	"\x15chatview/events.proto\x12\x0fchatview.events\"+\n" +
 	"\fSubscribeReq\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\"I\n" +
-	"\x0fNewMessageEvent\x12 \n" +
-	"\ffrom_pub_key\x18\x01 \x01(\tR\n" +
-	"fromPubKey\x12\x14\n" +
-	"\x05count\x18\x02 \x01(\x05R\x05count\"_\n" +
-	"\x11FriendStatusEvent\x12\x17\n" +
-	"\apub_key\x18\x01 \x01(\tR\x06pubKey\x12\x14\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\"O\n" +
+	"\x0fNewMessageEvent\x12&\n" +
+	"\x0ffrom_public_key\x18\x01 \x01(\tR\rfromPublicKey\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count\"e\n" +
+	"\x11FriendStatusEvent\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey\x12\x14\n" +
 	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x1b\n" +
 	"\tis_online\x18\x03 \x01(\bR\bisOnline\"I\n" +
 	"\x14SystemBroadcastEvent\x12\x12\n" +

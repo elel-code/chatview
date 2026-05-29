@@ -41,7 +41,7 @@ enum MessageDelivery {
 
 // 好友信息 — 对应 Friend 接口
 message FriendInfo {
-  string pub_key   = 1;  // Ed25519 公钥 (base64 或 hex)
+  string public_key = 1;  // Ed25519 公钥 (base64 或 hex)
   string alias     = 2;  // 别名/备注名
   bool   is_online = 3;
   int32  unread    = 4;  // 未读消息数
@@ -50,7 +50,7 @@ message FriendInfo {
 // 聊天消息 — 对应前端 ChatMessage 接口
 //
 // 客户端 UI 层应做 DTO 映射，避免直接把 protobuf 对象原样暴露给界面:
-//   - proto sender_pub_key (field 2)      → JS { sender }
+//   - proto sender_public_key (field 2)   → JS { sender }
 //   - proto delivery    (enum, field 5)   → JS { delivery: "incoming"|"pending"|"sent"|"failed" }
 //   - proto timestamp   (string, field 4) → JS { timestamp }  直接透传
 //   - proto id          (string, field 1) → JS { id }         直接透传
@@ -59,7 +59,7 @@ message FriendInfo {
 //   - proto server_seq  (int64, field 10) 留在客户端缓存层；通常不作为聊天气泡字段展示
 message ChatMessage {
   string          id              = 1;  // 服务端消息 ID
-  string          sender_pub_key  = 2;  // 发送者公钥
+  string          sender_public_key = 2;  // 发送者公钥
   string          text            = 3;  // 消息正文
   string          timestamp       = 4;  // ISO 8601 时间戳
   MessageDelivery delivery        = 5;  // 投递状态
@@ -76,7 +76,7 @@ message MessageHistoryPage {
 
 // 用户信息（管理员视角）— 对应 UserInfo 接口
 message UserInfo {
-  string pub_key   = 1;
+  string public_key = 1;
   bool   is_online = 2;
   bool   is_banned = 3;
 }

@@ -4,9 +4,10 @@ import (
 	"context"
 
 	chatpb "chatview/api/gen/chatview/chat"
+	"chatview/client/internal/domain"
 )
 
-func (c *Client) ListFriends(ctx context.Context) ([]Friend, error) {
+func (c *Client) ListFriends(ctx context.Context) ([]domain.Friend, error) {
 	ctx, cancel := withTimeout(c.authContext(ctx))
 	defer cancel()
 
@@ -21,50 +22,50 @@ func (c *Client) AddFriend(ctx context.Context, publicKey string) error {
 	ctx, cancel := withTimeout(c.authContext(ctx))
 	defer cancel()
 
-	_, err := c.chat.AddFriend(ctx, &chatpb.AddFriendReq{TargetPubKey: publicKey})
+	_, err := c.chat.AddFriend(ctx, &chatpb.AddFriendReq{TargetPublicKey: publicKey})
 	return rpcError(err)
 }
 
-func (c *Client) GetHistory(ctx context.Context, peerPublicKey string, cursor string, limit int32, direction string) (HistoryPage, error) {
+func (c *Client) GetHistory(ctx context.Context, peerPublicKey string, cursor string, limit int32, direction string) (domain.HistoryPage, error) {
 	ctx, cancel := withTimeout(c.authContext(ctx))
 	defer cancel()
 
 	resp, err := c.chat.GetMessageHistory(ctx, &chatpb.GetMessageHistoryReq{
-		PeerPubKey: peerPublicKey,
-		Cursor:     cursor,
-		Limit:      limit,
-		Direction:  direction,
+		PeerPublicKey: peerPublicKey,
+		Cursor:        cursor,
+		Limit:         limit,
+		Direction:     direction,
 	})
 	if err != nil {
-		return HistoryPage{}, rpcError(err)
+		return domain.HistoryPage{}, rpcError(err)
 	}
 	if resp.Page == nil {
-		return HistoryPage{}, nil
+		return domain.HistoryPage{}, nil
 	}
-	return HistoryPage{
+	return domain.HistoryPage{
 		Messages:   mapSlice(resp.Page.Messages, messageFromProto),
 		NextCursor: resp.Page.NextCursor,
 		HasMore:    resp.Page.HasMore,
 	}, nil
 }
 
-func (c *Client) SendMessage(ctx context.Context, receiverPublicKey string, text string) (SendResult, error) {
+func (c *Client) SendMessage(ctx context.Context, receiverPublicKey string, text string) (domain.SendResult, error) {
 	return c.SendMessageWithID(ctx, receiverPublicKey, text, randomMessageID())
 }
 
-func (c *Client) SendMessageWithID(ctx context.Context, receiverPublicKey string, text string, clientMessageID string) (SendResult, error) {
+func (c *Client) SendMessageWithID(ctx context.Context, receiverPublicKey string, text string, clientMessageID string) (domain.SendResult, error) {
 	ctx, cancel := withTimeout(c.authContext(ctx))
 	defer cancel()
 
 	resp, err := c.chat.SendMessage(ctx, &chatpb.SendMessageReq{
-		ReceiverPubKey:  receiverPublicKey,
-		Text:            text,
-		ClientMessageId: clientMessageID,
+		ReceiverPublicKey: receiverPublicKey,
+		Text:              text,
+		ClientMessageId:   clientMessageID,
 	})
 	if err != nil {
-		return SendResult{}, rpcError(err)
+		return domain.SendResult{}, rpcError(err)
 	}
-	return SendResult{
+	return domain.SendResult{
 		ID:        resp.MessageId,
 		Timestamp: resp.Timestamp,
 		ServerSeq: resp.ServerSeq,
@@ -76,7 +77,7 @@ func (c *Client) MarkConversationRead(ctx context.Context, peerPublicKey string,
 	defer cancel()
 
 	_, err := c.chat.MarkConversationRead(ctx, &chatpb.MarkConversationReadReq{
-		PeerPubKey:        peerPublicKey,
+		PeerPublicKey:     peerPublicKey,
 		LastReadServerSeq: seq,
 	})
 	return rpcError(err)

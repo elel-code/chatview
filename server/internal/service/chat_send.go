@@ -97,7 +97,7 @@ func (s *ChatService) sendMessageOnce(ctx context.Context, req *chatpb.SendMessa
 		unread = 1
 	}
 	s.Hub.Push(input.receiver, &eventspb.ServerEvent{Event: &eventspb.ServerEvent_NewMessage{
-		NewMessage: &eventspb.NewMessageEvent{FromPubKey: input.sender, Count: unread},
+		NewMessage: &eventspb.NewMessageEvent{FromPublicKey: input.sender, Count: unread},
 	}})
 	return &chatpb.SendMessageResp{
 		MessageId: msgID,
@@ -108,13 +108,13 @@ func (s *ChatService) sendMessageOnce(ctx context.Context, req *chatpb.SendMessa
 
 func newSendMessageInput(ctx context.Context, req *chatpb.SendMessageReq) (sendMessageInput, error) {
 	input := sendMessageInput{
-		sender:          contextx.PubKey(ctx),
-		receiver:        strings.TrimSpace(req.GetReceiverPubKey()),
+		sender:          contextx.PublicKey(ctx),
+		receiver:        strings.TrimSpace(req.GetReceiverPublicKey()),
 		text:            strings.TrimSpace(req.GetText()),
 		clientMessageID: strings.TrimSpace(req.GetClientMessageId()),
 	}
 	if input.receiver == "" || input.receiver == input.sender {
-		return sendMessageInput{}, status.Error(codes.InvalidArgument, "invalid receiver_pub_key")
+		return sendMessageInput{}, status.Error(codes.InvalidArgument, "invalid receiver_public_key")
 	}
 	if input.text == "" {
 		return sendMessageInput{}, status.Error(codes.InvalidArgument, "text is required")
