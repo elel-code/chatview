@@ -97,11 +97,11 @@ jobs:
 
       - name: Build server
         working-directory: server
-        run: go build -v -o ../dist/chatview-server-windows-amd64.exe ./cmd/server
+        run: go build -v -ldflags="-s -w" -o ../dist/chatview-server-windows-amd64.exe ./cmd/server
 
       - name: Build client
         working-directory: client
-        run: go build -v -ldflags="-H=windowsgui" -o ../dist/chatview-client-windows-amd64.exe ./cmd/client
+        run: go build -v -ldflags="-s -w -H=windowsgui" -o ../dist/chatview-client-windows-amd64.exe ./cmd/client
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
