@@ -1,0 +1,119 @@
+name: Windows Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      llvm_version:
+        description: 'LLVM/Clang version to install; use "latest" for the current llvm-project release'
+        required: true
+        default: "latest"
+      run_tests:
+        description: "Run Go tests before building"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows Clang
+    runs-on: windows-latest
+
+    env:
+      CGO_ENABLED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.3"
+          cache-dependency-path: |
+            api/go.sum
+            server/go.sum
+            client/go.sum
+
+      - name: Resolve LLVM version
+        id: llvm-version
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REQUESTED_LLVM_VERSION: ${{ inputs.llvm_version }}
+        run: |
+          $version = $env:REQUESTED_LLVM_VERSION.Trim()
+          if ($version -eq "latest") {
+            $headers = @{ Accept = "application/vnd.github+json" }
+            if ($env:GITHUB_TOKEN) {
+              $headers["Authorization"] = "Bearer $env:GITHUB_TOKEN"
+            }
+
+            $release = Invoke-RestMethod `
+              -Uri "https://api.github.com/repos/llvm/llvm-project/releases/latest" `
+              -Headers $headers
+            $version = $release.tag_name -replace "^llvmorg-", ""
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "LLVM version: $version"
+
+      - name: Install LLVM and Clang
+        id: llvm
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: ${{ steps.llvm-version.outputs.version }}
+          env: true
+
+      - name: Show toolchain
+        shell: pwsh
+        run: |
+          go version
+          Write-Host "LLVM_PATH=$env:LLVM_PATH"
+          Write-Host "Installed LLVM=${{ steps.llvm.outputs.version }}"
+          clang --version
+          clang++ --version
+          Write-Host "CC=$env:CC"
+          Write-Host "CXX=$env:CXX"
+          if ($env:CC -notmatch "clang") {
+            throw "CC is not Clang: $env:CC"
+          }
+          if ($env:CXX -notmatch "clang") {
+            throw "CXX is not Clang++: $env:CXX"
+          }
+
+      - name: Test API
+        if: ${{ inputs.run_tests }}
+        working-directory: api
+        run: go test ./...
+
+      - name: Test server
+        if: ${{ inputs.run_tests }}
+        working-directory: server
+        run: go test ./...
+
+      - name: Test client
+        if: ${{ inputs.run_tests }}
+        working-directory: client
+        run: go test ./...
+
+      - name: Create artifact directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path dist | Out-Null
+
+      - name: Build server
+        working-directory: server
+        run: go build -v -o ../dist/chatview-server-windows-amd64.exe ./cmd/server
+
+      - name: Build client
+        working-directory: client
+        run: go build -v -o ../dist/chatview-client-windows-amd64.exe ./cmd/client
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatview-windows-amd64
+          path: dist/*.exe
+          if-no-files-found: error
