@@ -11,7 +11,6 @@ import (
 	"chatview/client/internal/config"
 	"chatview/client/internal/core"
 	"chatview/client/internal/identity"
-	"chatview/client/internal/platform"
 	"chatview/client/internal/rpcclient"
 	"chatview/client/internal/storage"
 	chatui "chatview/client/internal/ui"
@@ -93,7 +92,7 @@ func (w filterWriter) Write(p []byte) (int, error) {
 }
 
 func warnIfLikelyBlurry() {
-	if os.Getenv("XDG_SESSION_TYPE") != "wayland" || platform.NativeWayland {
+	if os.Getenv("XDG_SESSION_TYPE") != "wayland" || nativeWayland {
 		return
 	}
 	fmt.Fprintln(os.Stderr, "warning: running on Wayland without native Wayland build tag; use `go run -tags wayland ./cmd/client` if the window looks blurry")
