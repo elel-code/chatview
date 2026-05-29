@@ -1,6 +1,10 @@
 package service
 
-import "testing"
+import (
+	"slices"
+	"strings"
+	"testing"
+)
 
 func TestMessageHistoryLimitPreservesSmallPositiveValues(t *testing.T) {
 	tests := map[int32]int32{
@@ -40,5 +44,28 @@ func TestNormalizeDirection(t *testing.T) {
 	}
 	if got := normalizeDirection("anything"); got != "older" {
 		t.Fatalf("normalizeDirection fallback = %q", got)
+	}
+}
+
+func TestHistoryQueryBuildsCursorPredicates(t *testing.T) {
+	query, args := historyQuery("conv-1", 42, true, "newer", 11)
+	if !strings.Contains(query, "server_seq > $2") || !strings.Contains(query, "ORDER BY server_seq ASC") {
+		t.Fatalf("unexpected newer query:\n%s", query)
+	}
+	if !slices.Equal(args, []any{"conv-1", int64(42), int32(11)}) {
+		t.Fatalf("newer args = %#v", args)
+	}
+
+	query, args = historyQuery("conv-1", 42, true, "older", 11)
+	if !strings.Contains(query, "server_seq < $2") || !strings.Contains(query, "ORDER BY server_seq DESC") {
+		t.Fatalf("unexpected older query:\n%s", query)
+	}
+	if !slices.Equal(args, []any{"conv-1", int64(42), int32(11)}) {
+		t.Fatalf("older args = %#v", args)
+	}
+
+	query, args = historyQuery("conv-1", 0, false, "newer", 11)
+	if strings.Contains(query, "server_seq >") || !slices.Equal(args, []any{"conv-1", int32(11)}) {
+		t.Fatalf("unexpected newer no-cursor query/args:\n%s\n%#v", query, args)
 	}
 }

@@ -63,18 +63,15 @@ func (a *Application) loadHistory(publicKey string) {
 				a.updateHistoryState()
 				return
 			}
-			a.messages = page.Messages
-			a.historyCursor = page.NextCursor
-			a.historyHasMore = page.HasMore
-			a.messageList.Refresh()
-			a.updateEmptyStates()
+			a.replaceHistory(page)
+			a.refreshMessageView(false)
 			a.updateHistoryState()
 			if len(a.messages) > 0 {
-				a.messageList.ScrollToBottom()
+				a.scrollMessagesToBottom()
 				a.markConversationReadThroughLastMessage(ctx, publicKey)
 			}
 			a.refreshOutboxStatus()
-			a.setStatus(fmt.Sprintf("%d messages", len(a.messages)))
+			a.updateMessageCountStatus()
 		})
 	}()
 }
@@ -111,14 +108,11 @@ func (a *Application) loadOlderHistory() {
 				a.updateHistoryState()
 				return
 			}
-			a.messages = append(page.Messages, a.messages...)
-			a.historyCursor = page.NextCursor
-			a.historyHasMore = page.HasMore
-			a.messageList.Refresh()
-			a.updateEmptyStates()
+			a.prependHistory(page)
+			a.refreshMessageView(false)
 			a.updateHistoryState()
 			a.refreshOutboxStatus()
-			a.setStatus(fmt.Sprintf("%d messages", len(a.messages)))
+			a.updateMessageCountStatus()
 		})
 	}()
 }
@@ -157,9 +151,7 @@ func (a *Application) sendMessage() {
 				return
 			}
 			a.upsertMessage(message)
-			a.messageList.Refresh()
-			a.updateEmptyStates()
-			a.messageList.ScrollToBottom()
+			a.refreshMessageView(true)
 			a.refreshOutboxStatus()
 			a.refreshFriends()
 			a.setStatus(message.Delivery)
@@ -192,12 +184,10 @@ func (a *Application) syncConversation(publicKey string, expectedCount int32) {
 				return
 			}
 			added := a.mergeMessages(page.Messages)
-			a.messageList.Refresh()
-			a.updateEmptyStates()
-			a.messageList.ScrollToBottom()
+			a.refreshMessageView(true)
 			a.refreshOutboxStatus()
 			a.markConversationReadThroughLastMessage(ctx, publicKey)
-			a.setStatus(fmt.Sprintf("%d messages", len(a.messages)))
+			a.updateMessageCountStatus()
 			if added > 0 {
 				a.refreshFriends()
 			}
@@ -242,15 +232,45 @@ func (a *Application) syncUnreadConversations(friends []core.Friend) {
 				if added == 0 {
 					return
 				}
-				a.messageList.Refresh()
-				a.updateEmptyStates()
-				a.messageList.ScrollToBottom()
+				a.refreshMessageView(true)
 				a.refreshOutboxStatus()
 				a.markConversationReadThroughLastMessage(ctx, peer.PublicKey)
-				a.setStatus(fmt.Sprintf("%d messages", len(a.messages)))
+				a.updateMessageCountStatus()
 			})
 		}
 	}()
+}
+
+func (a *Application) replaceHistory(page core.HistoryPage) {
+	a.messages = page.Messages
+	a.historyCursor = page.NextCursor
+	a.historyHasMore = page.HasMore
+}
+
+func (a *Application) prependHistory(page core.HistoryPage) {
+	a.messages = append(page.Messages, a.messages...)
+	a.historyCursor = page.NextCursor
+	a.historyHasMore = page.HasMore
+}
+
+func (a *Application) refreshMessageView(scrollToBottom bool) {
+	if a.messageList != nil {
+		a.messageList.Refresh()
+	}
+	a.updateEmptyStates()
+	if scrollToBottom {
+		a.scrollMessagesToBottom()
+	}
+}
+
+func (a *Application) scrollMessagesToBottom() {
+	if a.messageList != nil {
+		a.messageList.ScrollToBottom()
+	}
+}
+
+func (a *Application) updateMessageCountStatus() {
+	a.setStatus(fmt.Sprintf("%d messages", len(a.messages)))
 }
 
 func (a *Application) markConversationReadThroughLastMessage(ctx context.Context, publicKey string) {
