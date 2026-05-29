@@ -19,6 +19,7 @@ jobs:
 
     env:
       CGO_ENABLED: "1"
+      CGO_CFLAGS: "-Wno-invalid-command-line-argument -Wno-unused-command-line-argument"
 
     steps:
       - name: Checkout
@@ -100,7 +101,7 @@ jobs:
 
       - name: Build client
         working-directory: client
-        run: go build -v -o ../dist/chatview-client-windows-amd64.exe ./cmd/client
+        run: go build -v -ldflags="-H=windowsgui" -o ../dist/chatview-client-windows-amd64.exe ./cmd/client
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
