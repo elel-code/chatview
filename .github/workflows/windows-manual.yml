@@ -19,6 +19,8 @@ jobs:
 
     env:
       CGO_ENABLED: "1"
+      CC: clang
+      CXX: clang++
 
     steps:
       - name: Checkout
@@ -37,8 +39,9 @@ jobs:
         shell: pwsh
         run: |
           go version
-          Write-Host "CGO_ENABLED=$env:CGO_ENABLED"
-          go env CC CXX
+          clang --version
+          clang++ --version
+          go env CGO_ENABLED CC CXX
 
       - name: Test API
         if: ${{ inputs.run_tests }}
