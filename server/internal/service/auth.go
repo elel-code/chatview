@@ -27,16 +27,15 @@ func (s *AuthService) RequestChallenge(ctx context.Context, req *authpb.RequestC
 	if _, err := auth.ParseEd25519PublicKey(req.GetPubKey()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid pub_key format")
 	}
-	challenge, err := auth.RandomBytes(32)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "random source failed")
-	}
+	challenge := auth.RandomBytes(32)
 	expiresAt := time.Now().UTC().Add(s.ChallengeTTL)
 
 	tx, err := s.Store.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "database error")
 	}
+	defer tx.Rollback()
+
 	var createdUser bool
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO users (pub_key) VALUES ($1)
@@ -54,7 +53,6 @@ func (s *AuthService) RequestChallenge(ctx context.Context, req *authpb.RequestC
 		`, req.GetPubKey(), challenge, expiresAt)
 	}
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	if err := tx.Commit(); err != nil {
@@ -81,6 +79,8 @@ func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.
 	if err != nil {
 		return nil, status.Error(codes.Internal, "database error")
 	}
+	defer tx.Rollback()
+
 	var challenge []byte
 	var role int32
 	var userStatus int32
@@ -91,22 +91,15 @@ func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.
 		WHERE c.pub_key = $1 AND c.expires_at > now()
 	`, req.GetPubKey()).Scan(&challenge, &role, &userStatus)
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.Unauthenticated, "challenge expired")
 	}
 	if !ed25519.Verify(pubKey, challenge, req.GetChallengeSignature()) {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.Unauthenticated, "invalid signature")
 	}
 	if userStatus == 2 {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.PermissionDenied, "account banned")
 	}
-	token, err := auth.NewToken()
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, status.Error(codes.Internal, "random source failed")
-	}
+	token := auth.NewToken()
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO sessions (token, pub_key, expires_at, is_online)
 		VALUES ($1, $2, $3, false)
@@ -115,7 +108,6 @@ func (s *AuthService) Login(ctx context.Context, req *authpb.LoginReq) (*authpb.
 		_, err = tx.ExecContext(ctx, `DELETE FROM challenges WHERE pub_key = $1`, req.GetPubKey())
 	}
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	if err := tx.Commit(); err != nil {

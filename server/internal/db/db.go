@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -53,7 +53,7 @@ func (s *Store) ApplyMigrations(ctx context.Context, dir string) error {
 	if err != nil {
 		return err
 	}
-	sort.Strings(files)
+	slices.Sort(files)
 	for _, file := range files {
 		version := strings.TrimSuffix(filepath.Base(file), ".up.sql")
 		var exists bool

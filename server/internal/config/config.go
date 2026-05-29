@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"os"
 	"strconv"
@@ -66,24 +67,12 @@ func unmarshalYAML(data []byte, cfg *Config) error {
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	if raw.ListenAddr != "" {
-		cfg.ListenAddr = raw.ListenAddr
-	}
-	if raw.DBDSN != "" {
-		cfg.DBDSN = raw.DBDSN
-	}
-	if raw.TLSCert != "" {
-		cfg.TLSCert = raw.TLSCert
-	}
-	if raw.TLSKey != "" {
-		cfg.TLSKey = raw.TLSKey
-	}
-	if raw.AdminPubKey != "" {
-		cfg.AdminPubKey = raw.AdminPubKey
-	}
-	if raw.MigrationsDir != "" {
-		cfg.MigrationsDir = raw.MigrationsDir
-	}
+	cfg.ListenAddr = cmp.Or(raw.ListenAddr, cfg.ListenAddr)
+	cfg.DBDSN = cmp.Or(raw.DBDSN, cfg.DBDSN)
+	cfg.TLSCert = cmp.Or(raw.TLSCert, cfg.TLSCert)
+	cfg.TLSKey = cmp.Or(raw.TLSKey, cfg.TLSKey)
+	cfg.AdminPubKey = cmp.Or(raw.AdminPubKey, cfg.AdminPubKey)
+	cfg.MigrationsDir = cmp.Or(raw.MigrationsDir, cfg.MigrationsDir)
 	cfg.SkipMigrations = raw.SkipMigrations
 	var err error
 	if cfg.SessionTTL, err = parseDuration(raw.SessionTTL, cfg.SessionTTL); err != nil {

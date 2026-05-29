@@ -1,6 +1,8 @@
 package config
 
 import (
+	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -98,8 +100,17 @@ func defaultDataDir() string {
 }
 
 func defaultUseTLS(target string) bool {
-	return !(strings.HasPrefix(target, "localhost:") ||
-		strings.HasPrefix(target, "127.") ||
-		strings.HasPrefix(target, "[::1]:") ||
-		strings.HasPrefix(target, "::1:"))
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		if strings.HasPrefix(target, "::1:") {
+			return false
+		}
+		host = target
+	}
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	addr, err := netip.ParseAddr(host)
+	return err != nil || !addr.IsLoopback()
 }

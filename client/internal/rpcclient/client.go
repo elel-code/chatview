@@ -2,16 +2,9 @@ package rpcclient
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"os"
 	"strings"
 	"sync"
-	"time"
 
 	adminpb "chatview/api/gen/chatview/admin"
 	authpb "chatview/api/gen/chatview/auth"
@@ -21,77 +14,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
-
-type Options struct {
-	Target                string
-	UseTLS                bool
-	CACertPath            string
-	SSLTargetNameOverride string
-}
-
-type LoginResult struct {
-	PublicKey string
-	Role      int32
-}
-
-type Friend struct {
-	PublicKey string
-	Alias     string
-	Online    bool
-	Unread    int32
-}
-
-type Message struct {
-	ID        string
-	Sender    string
-	Text      string
-	Timestamp string
-	Delivery  string
-	Error     string
-	ServerSeq int64
-}
-
-type HistoryPage struct {
-	Messages   []Message
-	NextCursor string
-	HasMore    bool
-}
-
-type SendResult struct {
-	ID        string
-	Timestamp string
-	ServerSeq int64
-}
-
-type Event struct {
-	Kind      string
-	PublicKey string
-	Text      string
-	Reason    string
-	Count     int32
-}
-
-type AdminStats struct {
-	OnlineUsers int32
-	TotalUsers  int32
-	BannedUsers int32
-}
-
-type UserInfo struct {
-	PublicKey string
-	Online    bool
-	Banned    bool
-}
-
-type AdminUpdate struct {
-	Users []UserInfo
-	Stats AdminStats
-}
 
 type Client struct {
 	conn   *grpc.ClientConn
@@ -159,19 +83,6 @@ func (c *Client) Login(ctx context.Context, publicKeyHex string, sign func([]byt
 	return LoginResult{PublicKey: resp.PubKey, Role: resp.Role}, nil
 }
 
-func (c *Client) ClearSession() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.sessionToken = ""
-	c.publicKey = ""
-}
-
-func (c *Client) PublicKey() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.publicKey
-}
-
 func (c *Client) ListFriends(ctx context.Context) ([]Friend, error) {
 	ctx, cancel := withTimeout(c.authContext(ctx))
 	defer cancel()
@@ -180,16 +91,7 @@ func (c *Client) ListFriends(ctx context.Context) ([]Friend, error) {
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	friends := make([]Friend, 0, len(resp.Friends))
-	for _, friend := range resp.Friends {
-		friends = append(friends, Friend{
-			PublicKey: friend.PubKey,
-			Alias:     friend.Alias,
-			Online:    friend.IsOnline,
-			Unread:    friend.Unread,
-		})
-	}
-	return friends, nil
+	return mapSlice(resp.Friends, friendFromProto), nil
 }
 
 func (c *Client) AddFriend(ctx context.Context, publicKey string) error {
@@ -216,12 +118,8 @@ func (c *Client) GetHistory(ctx context.Context, peerPublicKey string, cursor st
 	if resp.Page == nil {
 		return HistoryPage{}, nil
 	}
-	messages := make([]Message, 0, len(resp.Page.Messages))
-	for _, message := range resp.Page.Messages {
-		messages = append(messages, messageFromProto(message))
-	}
 	return HistoryPage{
-		Messages:   messages,
+		Messages:   mapSlice(resp.Page.Messages, messageFromProto),
 		NextCursor: resp.Page.NextCursor,
 		HasMore:    resp.Page.HasMore,
 	}, nil
@@ -280,14 +178,13 @@ func (c *Client) PollAdminEvents(ctx context.Context) (AdminUpdate, error) {
 			BannedUsers: resp.Update.Stats.BannedUsers,
 		}
 	}
-	update.Users = make([]UserInfo, 0, len(resp.Update.Users))
-	for _, user := range resp.Update.Users {
-		update.Users = append(update.Users, UserInfo{
+	update.Users = mapSlice(resp.Update.Users, func(user *commonpb.UserInfo) UserInfo {
+		return UserInfo{
 			PublicKey: user.PubKey,
 			Online:    user.IsOnline,
 			Banned:    user.IsBanned,
-		})
-	}
+		}
+	})
 	return update, nil
 }
 
@@ -336,149 +233,4 @@ func (c *Client) Subscribe(ctx context.Context) (<-chan Event, <-chan error) {
 		}
 	}()
 	return events, errs
-}
-
-func (c *Client) authContext(ctx context.Context) context.Context {
-	c.mu.RLock()
-	token := c.sessionToken
-	c.mu.RUnlock()
-	if token == "" {
-		return ctx
-	}
-	return metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
-}
-
-func transportCredentials(options Options) (credentials.TransportCredentials, error) {
-	if !options.UseTLS {
-		return insecure.NewCredentials(), nil
-	}
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-	if options.SSLTargetNameOverride != "" {
-		tlsConfig.ServerName = options.SSLTargetNameOverride
-	}
-	if options.CACertPath != "" {
-		pem, err := os.ReadFile(options.CACertPath)
-		if err != nil {
-			return nil, err
-		}
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(pem) {
-			return nil, errors.New("failed to parse CA certificate")
-		}
-		tlsConfig.RootCAs = pool
-	}
-	return credentials.NewTLS(tlsConfig), nil
-}
-
-func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, 10*time.Second)
-}
-
-func messageFromProto(message *commonpb.ChatMessage) Message {
-	if message == nil {
-		return Message{}
-	}
-	return Message{
-		ID:        message.Id,
-		Sender:    message.SenderPubKey,
-		Text:      message.Text,
-		Timestamp: message.Timestamp,
-		Delivery:  deliveryString(message.Delivery),
-		Error:     message.Error,
-		ServerSeq: message.ServerSeq,
-	}
-}
-
-func deliveryString(delivery commonpb.MessageDelivery) string {
-	switch delivery {
-	case commonpb.MessageDelivery_MESSAGE_DELIVERY_INCOMING:
-		return "incoming"
-	case commonpb.MessageDelivery_MESSAGE_DELIVERY_SENT:
-		return "sent"
-	case commonpb.MessageDelivery_MESSAGE_DELIVERY_FAILED:
-		return "failed"
-	default:
-		return "pending"
-	}
-}
-
-func eventFromProto(event *eventspb.ServerEvent) Event {
-	if event == nil {
-		return Event{Kind: "unknown"}
-	}
-	switch typed := event.Event.(type) {
-	case *eventspb.ServerEvent_NewMessage:
-		return Event{Kind: "new_message", PublicKey: typed.NewMessage.FromPubKey, Count: typed.NewMessage.Count}
-	case *eventspb.ServerEvent_FriendStatus:
-		return Event{Kind: "friend_status", PublicKey: typed.FriendStatus.PubKey}
-	case *eventspb.ServerEvent_SystemBroadcast:
-		return Event{Kind: "system_broadcast", Text: typed.SystemBroadcast.Text}
-	case *eventspb.ServerEvent_ForceOffline:
-		return Event{Kind: "force_offline", Reason: typed.ForceOffline.Reason}
-	case *eventspb.ServerEvent_AdminUpdate:
-		return Event{Kind: "admin_update"}
-	default:
-		return Event{Kind: "unknown"}
-	}
-}
-
-func randomMessageID() string {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return fmt.Sprintf("%d", time.Now().UnixNano())
-	}
-	return hex.EncodeToString(bytes[:])
-}
-
-func rpcError(err error) error {
-	if err == nil {
-		return nil
-	}
-	st, ok := status.FromError(err)
-	if !ok {
-		return err
-	}
-	message := st.Message()
-	switch st.Code() {
-	case codes.PermissionDenied:
-		if message == "" {
-			return errors.New("permission denied")
-		}
-		return fmt.Errorf("permission denied: %s", message)
-	case codes.Unauthenticated:
-		if message == "" {
-			return errors.New("unauthenticated")
-		}
-		return fmt.Errorf("unauthenticated: %s", message)
-	case codes.Unavailable:
-		if message == "" {
-			return errors.New("service unavailable")
-		}
-		return fmt.Errorf("service unavailable: %s", message)
-	case codes.DeadlineExceeded:
-		if message == "" {
-			return errors.New("request timed out")
-		}
-		return fmt.Errorf("request timed out: %s", message)
-	case codes.InvalidArgument:
-		if message == "" {
-			return errors.New("invalid argument")
-		}
-		return fmt.Errorf("invalid argument: %s", message)
-	case codes.NotFound:
-		if message == "" {
-			return errors.New("not found")
-		}
-		return fmt.Errorf("not found: %s", message)
-	case codes.AlreadyExists:
-		if message == "" {
-			return errors.New("already exists")
-		}
-		return fmt.Errorf("already exists: %s", message)
-	default:
-		if message == "" {
-			return fmt.Errorf("grpc error %d", st.Code())
-		}
-		return fmt.Errorf("grpc error %d: %s", st.Code(), message)
-	}
 }

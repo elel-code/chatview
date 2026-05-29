@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -165,9 +166,7 @@ func (r *syncFakeRPC) GetHistory(_ context.Context, _ string, cursor string, lim
 				messages = append(messages, message)
 			}
 		}
-		for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-			messages[i], messages[j] = messages[j], messages[i]
-		}
+		slices.Reverse(messages)
 	}
 	hasMore := int32(len(messages)) > limit
 	if hasMore {

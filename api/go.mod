@@ -1,6 +1,6 @@
 module chatview/api
 
-go 1.26
+go 1.26.3
 
 require (
 	google.golang.org/grpc v1.81.0

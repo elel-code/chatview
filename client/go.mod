@@ -1,6 +1,6 @@
 module chatview/client
 
-go 1.26
+go 1.26.3
 
 require (
 	chatview/api v0.0.0

@@ -40,10 +40,7 @@ func (h *Hub) Push(pubKey string, event *eventspb.ServerEvent) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for _, ch := range h.streams[pubKey] {
-		select {
-		case ch <- event:
-		default:
-		}
+		trySend(ch, event)
 	}
 }
 
@@ -52,10 +49,7 @@ func (h *Hub) Broadcast(event *eventspb.ServerEvent) {
 	defer h.mu.RUnlock()
 	for _, clients := range h.streams {
 		for _, ch := range clients {
-			select {
-			case ch <- event:
-			default:
-			}
+			trySend(ch, event)
 		}
 	}
 }
@@ -93,6 +87,13 @@ func (h *Hub) OnlinePubKeys() map[string]bool {
 		out[pubKey] = true
 	}
 	return out
+}
+
+func trySend(ch chan *eventspb.ServerEvent, event *eventspb.ServerEvent) {
+	select {
+	case ch <- event:
+	default:
+	}
 }
 
 func RunPresenceHealer(ctx context.Context, store *db.Store, hub *Hub, interval time.Duration) {

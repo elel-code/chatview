@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	adminpb "chatview/api/gen/chatview/admin"
 	commonpb "chatview/api/gen/chatview/common"
@@ -21,41 +22,43 @@ type AdminService struct {
 }
 
 func (s *AdminService) SetUserStatus(ctx context.Context, req *adminpb.SetUserStatusReq) (*adminpb.SetUserStatusResp, error) {
-	if req.GetTargetPubKey() == "" {
+	target := strings.TrimSpace(req.GetTargetPubKey())
+	if target == "" {
 		return nil, status.Error(codes.InvalidArgument, "target_pub_key is required")
 	}
-	statusValue := int32(req.GetStatus())
-	if statusValue != int32(commonpb.UserStatus_USER_STATUS_ACTIVE) && statusValue != int32(commonpb.UserStatus_USER_STATUS_BANNED) {
+	statusValue := req.GetStatus()
+	if statusValue != commonpb.UserStatus_USER_STATUS_ACTIVE && statusValue != commonpb.UserStatus_USER_STATUS_BANNED {
 		return nil, status.Error(codes.InvalidArgument, "invalid status")
 	}
+	banned := statusValue == commonpb.UserStatus_USER_STATUS_BANNED
 	tx, err := s.Store.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "database error")
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE users SET status = $2, updated_at = now() WHERE pub_key = $1`, req.GetTargetPubKey(), statusValue)
-	if err == nil && statusValue == int32(commonpb.UserStatus_USER_STATUS_BANNED) {
-		_, err = tx.ExecContext(ctx, `DELETE FROM challenges WHERE pub_key = $1`, req.GetTargetPubKey())
+	defer tx.Rollback()
+
+	result, err := tx.ExecContext(ctx, `UPDATE users SET status = $2, updated_at = now() WHERE pub_key = $1`, target, int32(statusValue))
+	if err == nil && banned {
+		_, err = tx.ExecContext(ctx, `DELETE FROM challenges WHERE pub_key = $1`, target)
 		if err == nil {
-			_, err = tx.ExecContext(ctx, `DELETE FROM sessions WHERE pub_key = $1`, req.GetTargetPubKey())
+			_, err = tx.ExecContext(ctx, `DELETE FROM sessions WHERE pub_key = $1`, target)
 		}
 	}
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		_ = tx.Rollback()
 		return nil, status.Error(codes.NotFound, "user not found")
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, status.Error(codes.Internal, "database error")
 	}
-	if statusValue == int32(commonpb.UserStatus_USER_STATUS_BANNED) {
-		s.Hub.Push(req.GetTargetPubKey(), &eventspb.ServerEvent{Event: &eventspb.ServerEvent_ForceOffline{
+	if banned {
+		s.Hub.Push(target, &eventspb.ServerEvent{Event: &eventspb.ServerEvent_ForceOffline{
 			ForceOffline: &eventspb.ForceOfflineEvent{Reason: "account_banned"},
 		}})
-		s.Hub.KickUser(req.GetTargetPubKey())
+		s.Hub.KickUser(target)
 	}
 	s.Hub.PushAdmins(ctx, s.Store, &eventspb.ServerEvent{Event: &eventspb.ServerEvent_AdminUpdate{
 		AdminUpdate: &eventspb.AdminUpdateEvent{},
@@ -95,7 +98,10 @@ func (s *AdminService) PollAdminEvents(ctx context.Context, _ *adminpb.PollAdmin
 		return nil, status.Error(codes.Internal, "database error")
 	}
 	stats := &commonpb.AdminStats{TotalUsers: int32(len(users))}
-	resp := &adminpb.PollAdminEventsResp{Update: &commonpb.AdminUpdate{Stats: stats}}
+	resp := &adminpb.PollAdminEventsResp{Update: &commonpb.AdminUpdate{
+		Stats: stats,
+		Users: make([]*commonpb.UserInfo, 0, len(users)),
+	}}
 	for _, row := range users {
 		if row.IsOnline {
 			stats.OnlineUsers++

@@ -12,8 +12,8 @@ import (
 
 func (s *Store) AuthenticateToken(ctx context.Context, header string) (contextx.Principal, error) {
 	token := strings.TrimSpace(header)
-	if strings.HasPrefix(strings.ToLower(token), "bearer ") {
-		token = strings.TrimSpace(token[7:])
+	if scheme, value, ok := strings.Cut(token, " "); ok && strings.EqualFold(scheme, "bearer") {
+		token = strings.TrimSpace(value)
 	}
 	if token == "" {
 		return contextx.Principal{}, sql.ErrNoRows

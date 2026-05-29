@@ -9,18 +9,20 @@ import (
 	"strings"
 )
 
-func RandomBytes(n int) ([]byte, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	return b, err
+var publicKeyDecoders = []func(string) ([]byte, error){
+	hex.DecodeString,
+	base64.StdEncoding.DecodeString,
+	base64.RawStdEncoding.DecodeString,
 }
 
-func NewToken() (string, error) {
-	b, err := RandomBytes(32)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
+func RandomBytes(n int) []byte {
+	b := make([]byte, n)
+	rand.Read(b)
+	return b
+}
+
+func NewToken() string {
+	return rand.Text()
 }
 
 func ParseEd25519PublicKey(pubKey string) (ed25519.PublicKey, error) {
@@ -28,14 +30,10 @@ func ParseEd25519PublicKey(pubKey string) (ed25519.PublicKey, error) {
 	if pubKey == "" {
 		return nil, errors.New("empty pub_key")
 	}
-	if raw, err := hex.DecodeString(pubKey); err == nil && len(raw) == ed25519.PublicKeySize {
-		return ed25519.PublicKey(raw), nil
-	}
-	if raw, err := base64.StdEncoding.DecodeString(pubKey); err == nil && len(raw) == ed25519.PublicKeySize {
-		return ed25519.PublicKey(raw), nil
-	}
-	if raw, err := base64.RawStdEncoding.DecodeString(pubKey); err == nil && len(raw) == ed25519.PublicKeySize {
-		return ed25519.PublicKey(raw), nil
+	for _, decode := range publicKeyDecoders {
+		if raw, err := decode(pubKey); err == nil && len(raw) == ed25519.PublicKeySize {
+			return ed25519.PublicKey(raw), nil
+		}
 	}
 	return nil, errors.New("invalid pub_key format")
 }

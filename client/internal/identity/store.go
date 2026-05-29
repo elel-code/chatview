@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ed25519"
@@ -104,12 +105,8 @@ func (s *Store) saveSeed(seed []byte, pin string) error {
 	}
 	salt := make([]byte, saltSize)
 	nonce := make([]byte, nonceSize)
-	if _, err := rand.Read(salt); err != nil {
-		return err
-	}
-	if _, err := rand.Read(nonce); err != nil {
-		return err
-	}
+	rand.Read(salt)
+	rand.Read(nonce)
 	key, err := deriveKey(pin, salt)
 	if err != nil {
 		return err
@@ -145,7 +142,7 @@ func (s *Store) loadSeed(pin string) ([]byte, error) {
 	if len(payload) <= minSize {
 		return nil, errors.New("invalid identity file")
 	}
-	if string(payload[:len(fileMagic)]) != string(fileMagic) {
+	if !bytes.HasPrefix(payload, fileMagic) {
 		return nil, errors.New("unsupported identity file format")
 	}
 	offset := len(fileMagic)
